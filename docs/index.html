@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor Cooperativas S1 | Sakbé</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --dark:   #163043;
+  --light:  #DCEFF2;
+  --teal:   #C5DDDD;
+  --slate:  #525E64;
+  --sand:   #D9B39D;
+  --rust:   #9D4D31;
+  --white:  #ffffff;
+  --bg:     #f0f4f5;
+  --red:    #dc2626;
+  --yellow: #d97706;
+  --green:  #16a34a;
+  --red-bg:    #fef2f2;
+  --yellow-bg: #fffbeb;
+  --green-bg:  #f0fdf4;
+  --sidebar-w: 200px;
+  --header-h:  56px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       font-size: 13px; background: var(--bg); color: var(--slate); }
+
+/* ── HEADER ── */
+#header {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+  background: var(--dark); color: var(--white);
+  display: flex; align-items: center; gap: 20px; padding: 0 20px;
+  z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+#header .brand { font-size: 15px; font-weight: 700; letter-spacing: .5px;
+                 color: var(--light); white-space: nowrap; }
+#header .brand span { color: var(--sand); }
+.hctl { display: flex; align-items: center; gap: 6px; }
+.hctl label { font-size: 11px; color: var(--teal); white-space: nowrap; }
+.hctl select, .hctl button {
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+  color: var(--white); border-radius: 4px; padding: 4px 8px; font-size: 12px;
+  cursor: pointer;
+}
+.hctl select:focus, .hctl button:focus { outline: none; border-color: var(--sand); }
+.hctl select option { background: var(--dark); }
+#btn-sistema, #btn-coop {
+  padding: 4px 10px; transition: all .15s;
+}
+#btn-sistema.active, #btn-coop.active {
+  background: var(--rust); border-color: var(--rust);
+}
+#sel-coop { min-width: 220px; }
+.hctl-sep { width: 1px; height: 24px; background: rgba(255,255,255,.15); }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  position: fixed; top: var(--header-h); left: 0; bottom: 0;
+  width: var(--sidebar-w); background: var(--dark);
+  display: flex; flex-direction: column; padding: 12px 0;
+  z-index: 90; overflow-y: auto;
+}
+.tab-btn {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 16px; cursor: pointer; border: none; background: none;
+  color: rgba(255,255,255,.6); text-align: left; width: 100%;
+  transition: background .15s, color .15s;
+  font-size: 12px; line-height: 1.3;
+}
+.tab-btn:hover { background: rgba(255,255,255,.08); color: var(--white); }
+.tab-btn.active { background: rgba(197,221,221,.15); color: var(--light);
+                  border-left: 3px solid var(--sand); }
+.tab-btn .tnum { font-size: 10px; opacity: .5; min-width: 14px; margin-top: 1px; }
+.tab-btn .tlabel { font-weight: 500; }
+.tab-btn .tsub { font-size: 10px; opacity: .55; margin-top: 1px; }
+
+/* ── MAIN ── */
+#main {
+  margin-top: var(--header-h); margin-left: var(--sidebar-w);
+  padding: 24px; min-height: calc(100vh - var(--header-h));
+}
+
+/* ── LOADING ── */
+#loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px; color: var(--slate); font-size: 14px; gap: 10px;
+}
+.spinner { width: 20px; height: 20px; border: 2px solid var(--teal);
+           border-top-color: var(--dark); border-radius: 50%;
+           animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── SECTION HEADERS ── */
+.sec-title { font-size: 16px; font-weight: 700; color: var(--dark);
+             margin-bottom: 4px; }
+.sec-sub { font-size: 12px; color: var(--slate); margin-bottom: 20px; }
+
+/* ── KPI CARDS ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr));
+            gap: 14px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--white); border-radius: 8px; padding: 14px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+}
+.kpi-label { font-size: 11px; color: var(--slate); margin-bottom: 6px; line-height: 1.3; }
+.kpi-val { font-size: 22px; font-weight: 700; color: var(--dark); }
+.kpi-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.kpi-delta { font-size: 11px; font-weight: 600; }
+.kpi-delta.up   { color: var(--red); }
+.kpi-delta.down { color: var(--green); }
+.kpi-delta.up.good   { color: var(--green); }
+.kpi-delta.down.bad  { color: var(--red); }
+.kpi-trend { font-size: 10px; color: var(--slate); }
+
+/* ── TABLES ── */
+.tbl-wrap { background: var(--white); border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.07); overflow: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--dark); color: var(--white); font-size: 11px;
+  font-weight: 600; padding: 8px 10px; text-align: right; white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+thead th:first-child { text-align: left; }
+tbody tr:hover { background: var(--light); }
+tbody td { padding: 7px 10px; border-bottom: 1px solid #eee;
+           text-align: right; white-space: nowrap; }
+tbody td:first-child { text-align: left; font-weight: 500; color: var(--dark); }
+tbody tr:last-child td { border-bottom: none; }
+.tfoot-row td { font-weight: 700; background: #f8f8f8; border-top: 2px solid #ddd; }
+
+/* ── SEMÁFORO ── */
+.semaph { display: inline-flex; align-items: center; justify-content: center;
+          width: 24px; height: 24px; border-radius: 50%; font-size: 10px;
+          font-weight: 700; }
+.semaph.red    { background: var(--red-bg);    color: var(--red); }
+.semaph.yellow { background: var(--yellow-bg); color: var(--yellow); }
+.semaph.green  { background: var(--green-bg);  color: var(--green); }
+.semaph.gray   { background: #f3f4f6;          color: #9ca3af; }
+.badge { display: inline-flex; align-items: center; gap: 3px;
+         padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge.red    { background: var(--red-bg);    color: var(--red); }
+.badge.yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge.green  { background: var(--green-bg);  color: var(--green); }
+
+/* ── CHART WRAPPERS ── */
+.chart-row { display: grid; gap: 16px; margin-bottom: 20px; }
+.chart-row.two { grid-template-columns: 1fr 1fr; }
+.chart-row.one { grid-template-columns: 1fr; }
+.chart-box { background: var(--white); border-radius: 8px; padding: 16px;
+             box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.chart-title { font-size: 12px; font-weight: 600; color: var(--dark);
+               margin-bottom: 12px; }
+.chart-box canvas { max-height: 260px; }
+
+/* ── TREND SPARKLINE ── */
+.spark { display: inline-block; }
+
+/* ── WATERFALL ── */
+.wf-box canvas { max-height: 320px; }
+
+/* ── TAB CONTENT ── */
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── FILTER ROW ── */
+.filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.filter-row label { font-size: 12px; color: var(--slate); }
+.filter-row select, .filter-row input {
+  border: 1px solid #d1d5db; border-radius: 4px; padding: 5px 8px;
+  font-size: 12px; background: var(--white);
+}
+
+/* ── ALERT SUMMARY ── */
+.alert-summary { display: flex; gap: 12px; margin-bottom: 20px; }
+.alert-pill { display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+              border-radius: 20px; font-size: 12px; font-weight: 600; }
+.alert-pill.red    { background: var(--red-bg);    color: var(--red); }
+.alert-pill.yellow { background: var(--yellow-bg); color: var(--yellow); }
+.alert-pill.green  { background: var(--green-bg);  color: var(--green); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  :root { --sidebar-w: 48px; }
+  .tab-btn .tlabel, .tab-btn .tsub { display: none; }
+  .tab-btn .tnum { font-size: 12px; margin: 0 auto; }
+  .chart-row.two { grid-template-columns: 1fr; }
+}
+
+/* ── MISC ── */
+.mt16 { margin-top: 16px; }
+.mt24 { margin-top: 24px; }
+.text-right { text-align: right; }
+.text-sm { font-size: 11px; }
+.coop-link { cursor: pointer; color: var(--rust); text-decoration: underline; }
+.coop-link:hover { color: var(--dark); }
+.periodo-label { font-size: 11px; color: var(--slate); font-style: italic; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────────────── -->
+<header id="header">
+  <div class="brand">SAKBÉ <span>|</span> Monitor Cooperativas S1</div>
+  <div class="hctl-sep"></div>
+  <div class="hctl">
+    <button id="btn-sistema" class="active" onclick="setVista('sistema')">Sistema</button>
+    <button id="btn-coop" onclick="setVista('coop')">Cooperativa</button>
+  </div>
+  <div class="hctl">
+    <label>Coop:</label>
+    <select id="sel-coop" onchange="onCoopChange()" disabled></select>
+  </div>
+  <div class="hctl">
+    <label>Periodo:</label>
+    <select id="sel-month" onchange="onMonthChange()"></select>
+  </div>
+  <div style="margin-left:auto;" class="periodo-label" id="header-periodo"></div>
+</header>
+
+<!-- ── SIDEBAR ────────────────────────────────────────────────────────────── -->
+<nav id="sidebar">
+  <button class="tab-btn active" data-tab="alertas" onclick="switchTab('alertas')">
+    <span class="tnum">1</span>
+    <div><div class="tlabel">Alertas</div><div class="tsub">del sistema</div></div>
+  </button>
+  <button class="tab-btn" data-tab="ejecutiva" onclick="switchTab('ejecutiva')">
+    <span class="tnum">2</span>
+    <div><div class="tlabel">Vista</div><div class="tsub">ejecutiva</div></div>
+  </button>
+  <button class="tab-btn" data-tab="cartera" onclick="switchTab('cartera')">
+    <span class="tnum">3</span>
+    <div><div class="tlabel">Cartera</div><div class="tsub">de crédito</div></div>
+  </button>
+  <button class="tab-btn" data-tab="liquidez" onclick="switchTab('liquidez')">
+    <span class="tnum">4</span>
+    <div><div class="tlabel">Liquidez</div></div>
+  </button>
+  <button class="tab-btn" data-tab="solvencia" onclick="switchTab('solvencia')">
+    <span class="tnum">5</span>
+    <div><div class="tlabel">Solvencia</div><div class="tsub">y patr. técnico</div></div>
+  </button>
+  <button class="tab-btn" data-tab="resultados" onclick="switchTab('resultados')">
+    <span class="tnum">6</span>
+    <div><div class="tlabel">Resultados</div><div class="tsub">y rentabilidad</div></div>
+  </button>
+  <button class="tab-btn" data-tab="benchmarking" onclick="switchTab('benchmarking')">
+    <span class="tnum">7</span>
+    <div><div class="tlabel">Bench-</div><div class="tsub">marking</div></div>
+  </button>
+</nav>
+
+<!-- ── MAIN ───────────────────────────────────────────────────────────────── -->
+<main id="main">
+  <div id="loading"><div class="spinner"></div> Cargando datos...</div>
+
+  <!-- TAB 1: ALERTAS -->
+  <div class="tab-pane" id="tab-alertas">
+    <div class="sec-title">Alertas del sistema</div>
+    <div class="sec-sub">Cooperativas con señales de deterioro en los últimos 3 meses. Basado en tendencia histórica, no en umbrales fijos.</div>
+    <div class="alert-summary" id="alert-summary"></div>
+    <div class="filter-row">
+      <label>Mostrar:</label>
+      <select id="filter-alertas" onchange="renderAlertas()">
+        <option value="all">Todas las cooperativas</option>
+        <option value="red">Solo alertas rojas</option>
+        <option value="any">Con alguna alerta</option>
+      </select>
+    </div>
+    <div class="tbl-wrap"><table id="tbl-alertas"></table></div>
+  </div>
+
+  <!-- TAB 2: VISTA EJECUTIVA -->
+  <div class="tab-pane" id="tab-ejecutiva">
+    <div class="sec-title" id="eje-title">Vista ejecutiva</div>
+    <div class="sec-sub" id="eje-sub"></div>
+    <div class="kpi-grid" id="kpi-grid"></div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Morosidad total — 24 meses</div>
+        <canvas id="eje-chart-mor"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">ROA — 24 meses</div>
+        <canvas id="eje-chart-roa"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: CARTERA -->
+  <div class="tab-pane" id="tab-cartera">
+    <div class="sec-title" id="cart-title">Cartera de crédito</div>
+    <div class="sec-sub" id="cart-sub"></div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Composición de cartera — periodo seleccionado</div>
+        <canvas id="cart-chart-comp"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Cartera vencida: antigüedad — cartera consumo</div>
+        <canvas id="cart-chart-aging"></canvas>
+      </div>
+    </div>
+    <div class="chart-box mt16 wf-box">
+      <div class="chart-title">Evolución de morosidad total — 24 meses</div>
+      <canvas id="cart-chart-mor"></canvas>
+    </div>
+    <div class="tbl-wrap mt16"><table id="tbl-cartera"></table></div>
+  </div>
+
+  <!-- TAB 4: LIQUIDEZ -->
+  <div class="tab-pane" id="tab-liquidez">
+    <div class="sec-title" id="liq-title">Liquidez</div>
+    <div class="sec-sub" id="liq-sub">Ratio liquidez = Fondos disponibles / Depósitos a corto plazo. Mínimo regulatorio: 14%.</div>
+    <div class="chart-row one">
+      <div class="chart-box">
+        <div class="chart-title">Ratio de liquidez — histórico completo (2018-2025)</div>
+        <canvas id="liq-chart-ratio"></canvas>
+      </div>
+    </div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Fondos disponibles vs. Obligaciones con el público</div>
+        <canvas id="liq-chart-fondos"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Depósitos a la vista vs. Depósitos a plazo</div>
+        <canvas id="liq-chart-dep"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: SOLVENCIA -->
+  <div class="tab-pane" id="tab-solvencia">
+    <div class="sec-title">Solvencia y patrimonio técnico</div>
+    <div class="sec-sub">Mínimo regulatorio SEPS: 9%. Ordenado de menor a mayor solvencia. Excedente = PTC − PTR.</div>
+    <div class="kpi-grid" id="sol-kpis"></div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Solvencia por cooperativa — periodo seleccionado</div>
+        <canvas id="sol-chart-bar"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Evolución solvencia — 24 meses</div>
+        <canvas id="sol-chart-trend"></canvas>
+      </div>
+    </div>
+    <div class="tbl-wrap mt16"><table id="tbl-solvencia"></table></div>
+  </div>
+
+  <!-- TAB 6: RESULTADOS -->
+  <div class="tab-pane" id="tab-resultados">
+    <div class="sec-title" id="res-title">Resultados y rentabilidad</div>
+    <div class="sec-sub" id="res-sub">Estado de resultados SEPS — cifras en miles USD.</div>
+    <div class="chart-box wf-box">
+      <div class="chart-title">Waterfall P&L — periodo seleccionado</div>
+      <canvas id="res-chart-wf"></canvas>
+    </div>
+    <div class="chart-row two mt16">
+      <div class="chart-box">
+        <div class="chart-title">ROA y ROE — 24 meses</div>
+        <canvas id="res-chart-roe"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Eficiencia operativa — 24 meses</div>
+        <canvas id="res-chart-ef"></canvas>
+      </div>
+    </div>
+    <div class="tbl-wrap mt16"><table id="tbl-resultados"></table></div>
+  </div>
+
+  <!-- TAB 7: BENCHMARKING -->
+  <div class="tab-pane" id="tab-benchmarking">
+    <div class="sec-title">Benchmarking — Segmento 1</div>
+    <div class="sec-sub">Distribución del sector en el periodo seleccionado. La línea naranja es la cooperativa seleccionada.</div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Distribución de morosidad total (p25/p50/p75)</div>
+        <canvas id="bm-chart-mor"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Distribución de solvencia (p25/p50/p75)</div>
+        <canvas id="bm-chart-sol"></canvas>
+      </div>
+    </div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Distribución de liquidez (p25/p50/p75)</div>
+        <canvas id="bm-chart-liq"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Distribución de ROA (p25/p50/p75)</div>
+        <canvas id="bm-chart-roa"></canvas>
+      </div>
+    </div>
+    <div class="chart-row two mt16">
+      <div class="tbl-wrap">
+        <div style="padding:12px 16px 4px; font-weight:600; font-size:12px; color:var(--dark)">Top 10 — Mayor solvencia</div>
+        <table id="tbl-rank-sol"></table>
+      </div>
+      <div class="tbl-wrap">
+        <div style="padding:12px 16px 4px; font-weight:600; font-size:12px; color:var(--dark)">Top 10 — Menor morosidad</div>
+        <table id="tbl-rank-mor"></table>
+      </div>
+    </div>
+    <div class="chart-row two mt16">
+      <div class="tbl-wrap">
+        <div style="padding:12px 16px 4px; font-weight:600; font-size:12px; color:var(--dark)">Top 10 — Mayor ROA</div>
+        <table id="tbl-rank-roa"></table>
+      </div>
+      <div class="tbl-wrap">
+        <div style="padding:12px 16px 4px; font-weight:600; font-size:12px; color:var(--dark)">Top 10 — Mayor total de activos</div>
+        <table id="tbl-rank-act"></table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════════════════════
+let DATA = null;
+let VISTA = 'sistema';   // 'sistema' | 'coop'
+let COOP_IDX = 0;
+let MONTH_IDX = 0;
+let ACTIVE_TAB = 'alertas';
+const CHARTS = {};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLAVES DE DATOS
+// ═══════════════════════════════════════════════════════════════════════════
+const IND = {
+  morTotal:     'MOROSIDAD DE LA CARTERA TOTAL',
+  morConsumo:   'MOROSIDAD DE LA CARTERA DE CONSUMO',
+  morProd:      'MOROSIDAD DE LA CARTERA DE CREDITO PRODUCTIVO',
+  morInmob:     'MOROSIDAD DE LA CARTERA DE CREDITO INMOBILIARIO',
+  morMicro:     'MOROSIDAD DE LA CARTERA DE MICROCREDITO',
+  morVIP:       'MOROSIDAD DE LA CARTERA DE VIVIENDA DE INTERES SOCIAL Y PUBLICO',
+  morEdu:       'MOROSIDAD DE LA CARTERA DE CREDITO EDUCATIVO',
+  cobProblem:   'COBERTURA DE LA CARTERA PROBLEMÁTICA',
+  cobConsumo:   'COBERTURA DE LA CARTERA DE CREDITO CONSUMO',
+  cobProd:      'COBERTURA DE LA CARTERA DE CREDITO PRODUCTIVO',
+  cobInmob:     'COBERTURA DE LA CARTERA DE CREDITO INMOBILIARIO',
+  cobMicro:     'COBERTURA DE LA CARTERA DE MICROCREDITO',
+  liquidez:     'FONDOS DISPONIBLES / TOTAL DEPOSITOS A CORTO PLAZO',
+  roa:          'RESULTADOS DEL EJERCICIO / ACTIVO PROMEDIO',
+  roe:          'RESULTADOS DEL EJERCICIO / PATRIMONIO PROMEDIO',
+  eficiencia:   'GASTOS DE OPERACION  / MARGEN FINANCIERO',
+  efActivos:    'GASTOS DE OPERACION ESTIMADOS / TOTAL ACTIVO PROMEDIO',
+  icn:          'INDICE DE CAPITALIZACION NETO: FK / FI',
+  cartImpDesc:  'CARTERA IMPRODUCTIVA DESCUBIERTA / (PATRIMONIO + RESULTADOS)',
+  cartImpPat:   'CARTERA IMPRODUCTIVA / PATRIMONIO (DIC)',
+  sufPatr:      '( PATRIMONIO + RESULTADOS ) / ACTIVOS INMOVILIZADOS',
+  activosProd:  'ACTIVOS PRODUCTIVOS / TOTAL ACTIVOS',
+  activosProdP: 'ACTIVOS PRODUCTIVOS / PASIVOS CON COSTO',
+  loanToDeposit:'CARTERA BRUTA / (DEPOSITOS A LA VISTA + DEPOSITOS A PLAZO)',
+  margenInterm: 'MARGEN DE INTERMEDIACIÓN ESTIMADO / ACTIVO PROMEDIO',
+};
+const AR = {
+  activos:  'Total Activos',
+  fondos:   'Fondos Disponibles',
+  inv:      'Inversiones',
+  cartera:  'Cartera de Créditos',
+  oblig:    'Obligaciones con el Público',
+  pasivos:  'Total Pasivos',
+  patr:     'Total Patrimonio',
+};
+const PAT = {
+  ptPrim:   'TOTAL PATRIMONIO TÉCNICO PRIMARIO',
+  ptSec:    'TOTAL PATRIMONIO TÉCNICO SECUNDARIO',
+  ptc:      '(A + B) PATRIMONIO TÉCNICO CONSTITUIDO (PTC)',
+  appr:     'TOTAL ACTIVOS PONDERADOS POR RIESGO (APPR)',
+  sol:      'SOLVENCIA',
+  ptr:      'PATRIMONIO TÉCNICO REQUERIDO (PTR) 9%',
+};
+const CLF = {
+  bruta:    'TOTAL CARTERA BRUTA',
+  pv:       'TOTAL CARTERA POR VENCER',
+  cndi:     'TOTAL CARTERA QUE NO DEVENGA INTERES',
+  vencida:  'TOTAL CARTERA VENCIDA',
+  improd:   'TOTAL CARTERA IMPRODUCTIVA',
+  prov:     'PROVISIONES',
+  neta:     'TOTAL CARTERA NETA',
+  pvCons:   'CARTERA DE CRÉDITO CONSUMO POR VENCER',
+  pvProd:   'CARTERA DE CRÉDITO PRODUCTIVO POR VENCER',
+  pvInmob:  'CARTERA DE CREDITO INMOBILIARIO POR VENCER',
+  pvMicro:  'CARTERA DE MICROCRÉDITO POR VENCER',
+  pvVIP:    'CARTERA DE VIVIENDA DE INTERÉS PUBLICO POR VENCER',
+  pvEdu:    'CARTERA DE CRÉDITO EDUCATIVO POR VENCER',
+  vcCons:   'CARTERA DE CRÉDITO CONSUMO VENCIDA',
+  vcProd:   'CARTERA DE CRÉDITO PRODUCTIVO VENCIDA',
+  vcInmob:  'CARTERA DE CREDITO INMOBILIARIO VENCIDA',
+  vcMicro:  'CARTERA DE MICROCRÉDITO VENCIDA',
+};
+const RES_ORDER = [
+  ['Intereses y descuentos ganados','ing'],
+  ['Intereses causados','-'],
+  ['MARGEN NETO DE INTERESES','sub'],
+  ['Comisiones ganadas','ing'],
+  ['Ingresos por servicios','ing'],
+  ['Comisiones causadas','-'],
+  ['Utilidades financieras','ing'],
+  ['Pérdidas financieras','-'],
+  ['MARGEN BRUTO FINANCIERO','sub'],
+  ['Provisiones','-'],
+  ['MARGEN NETO FINANCIERO','sub'],
+  ['Gastos de operación','-'],
+  ['MARGEN DE INTERMEDIACIÓN','sub'],
+  ['Otros ingresos operacionales','ing'],
+  ['Otras pérdidas operacionales','-'],
+  ['MARGEN OPERACIONAL','sub'],
+  ['Otros ingresos','ing'],
+  ['Otros gastos y pérdidas','-'],
+  ['GANANCIA ANTES DE IMPUESTOS','sub'],
+  ['Impuestos y participación a empleados','-'],
+  ['GANANCIA O PÉRDIDA DEL EJERCICIO','total'],
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS DE DATOS
+// ═══════════════════════════════════════════════════════════════════════════
+function getVal(section, key, ci, mi) {
+  const d = DATA[section][key];
+  if (!d || ci < 0) return null;
+  return d[ci]?.[mi] ?? null;
+}
+
+// Sector: mediana de todos los coops con dato en ese mes
+function getSectorVal(section, key, mi) {
+  const d = DATA[section][key];
+  if (!d) return null;
+  const vals = d.map(row => row[mi]).filter(v => v !== null && !isNaN(v));
+  if (!vals.length) return null;
+  return median(vals);
+}
+
+function getSectorSum(section, key, mi) {
+  const d = DATA[section][key];
+  if (!d) return null;
+  const vals = d.map(row => row[mi]).filter(v => v !== null && !isNaN(v));
+  if (!vals.length) return null;
+  return vals.reduce((a,b) => a+b, 0);
+}
+
+function getSeriesCoop(section, key, ci, months) {
+  const d = DATA[section][key];
+  if (!d) return months.map(() => null);
+  return months.map(mi => d[ci]?.[mi] ?? null);
+}
+
+function getSeriesSector(section, key, months) {
+  const d = DATA[section][key];
+  if (!d) return months.map(() => null);
+  return months.map(mi => {
+    const vals = d.map(row => row[mi]).filter(v => v !== null && !isNaN(v));
+    return vals.length ? median(vals) : null;
+  });
+}
+
+function currentVal(section, key) {
+  if (VISTA === 'coop') return getVal(section, key, COOP_IDX, MONTH_IDX);
+  return getSectorVal(section, key, MONTH_IDX);
+}
+
+function prevMonthVal(section, key) {
+  if (MONTH_IDX === 0) return null;
+  if (VISTA === 'coop') return getVal(section, key, COOP_IDX, MONTH_IDX - 1);
+  return getSectorVal(section, key, MONTH_IDX - 1);
+}
+
+// Últimos N months index
+function lastNMonths(n) {
+  const start = Math.max(0, MONTH_IDX - n + 1);
+  return Array.from({length: MONTH_IDX - start + 1}, (_,i) => start + i);
+}
+
+function allMonthsSeries(n) {
+  return lastNMonths(n).map(mi => DATA.meta.months[mi]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FORMATEO
+// ═══════════════════════════════════════════════════════════════════════════
+function pct(v, d=2)  { return v == null ? '—' : (v*100).toFixed(d)+'%'; }
+function M(v)    { return v == null ? '—' : '$'+(v/1e6).toFixed(1)+'M'; }
+function B(v)    { return v == null ? '—' : (v>=1e9? '$'+(v/1e9).toFixed(2)+'B' : '$'+(v/1e6).toFixed(0)+'M'); }
+function num(v,d=2) { return v == null ? '—' : v.toFixed(d); }
+function ym(m) { // 'YYYY-MM' → 'Mmm YYYY'
+  if (!m) return '';
+  const [y,mo] = m.split('-');
+  return ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+mo]+' '+y;
+}
+
+function delta(cur, prev, fmt, goodDir='down') {
+  if (cur == null || prev == null) return '';
+  const d = cur - prev;
+  const isGood = goodDir === 'down' ? d <= 0 : d >= 0;
+  const cls = (d > 0 ? 'up' : 'down') + (isGood ? ' good' : ' bad');
+  const sign = d > 0 ? '▲' : '▼';
+  const val = fmt === 'pct' ? Math.abs(d*100).toFixed(2)+'pp' : Math.abs(d).toFixed(2);
+  return `<span class="kpi-delta ${cls}">${sign} ${val}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTADÍSTICAS
+// ═══════════════════════════════════════════════════════════════════════════
+function median(arr) {
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+}
+function percentile(arr, p) {
+  const s = [...arr].sort((a,b) => a-b);
+  const idx = (p/100)*(s.length-1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return s[lo] + (s[hi]-s[lo])*(idx-lo);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ALERTAS
+// ═══════════════════════════════════════════════════════════════════════════
+const ALERT_CFG = [
+  { key: 'morTotal',  section:'ind', label:'Morosidad\ntotal',    fmt:'pct', check: morAlert,    goodDir:'down' },
+  { key: 'sol',       section:'pat', label:'Solvencia',           fmt:'pct', check: solAlert,    goodDir:'up'   },
+  { key: 'liquidez',  section:'ind', label:'Liquidez',            fmt:'pct', check: liqAlert,    goodDir:'up'   },
+  { key: 'icn',       section:'ind', label:'ICN',                 fmt:'num', check: icnAlert,    goodDir:'up'   },
+  { key: 'roa',       section:'ind', label:'ROA',                 fmt:'pct', check: roaAlert,    goodDir:'up'   },
+  { key: 'cartImpDesc',section:'ind',label:'Cart. imp.\ndescubierta',fmt:'pct',check:cidAlert,  goodDir:'down' },
+  { key: 'cobProblem',section:'ind', label:'Cobertura\nproblem.',  fmt:'pct', check: cobAlert,    goodDir:'up'   },
+];
+
+function morAlert(ci, mi) {
+  if (mi < 2) return 'gray';
+  const d = DATA.ind[IND.morTotal];
+  if (!d) return 'gray';
+  const [v0,v1,v2] = [d[ci]?.[mi], d[ci]?.[mi-1], d[ci]?.[mi-2]];
+  if (v0==null||v1==null) return 'gray';
+  const diff1 = v0 - v1, diff2 = v1 - (v2??v1);
+  if (diff1 > 0.02 && diff2 > 0) return 'red';
+  if (diff1 > 0.01) return 'yellow';
+  if (diff1 < -0.01) return 'green';
+  return 'green';
+}
+
+function solAlert(ci, mi) {
+  if (mi < 3) return 'gray';
+  const d = DATA.pat[PAT.sol];
+  if (!d) return 'gray';
+  const vals = [mi,mi-1,mi-2,mi-3].map(i => d[ci]?.[i]);
+  if (vals.some(v => v==null)) return 'gray';
+  const [v0,v1,v2,v3] = vals;
+  if (v0 < 0.09) return 'red';
+  if (v0 < v1 && v1 < v2 && v2 < v3) return 'red';
+  if (v0 < v1 && v1 < v2) return 'yellow';
+  if (v0 < 0.11) return 'yellow';
+  return 'green';
+}
+
+function liqAlert(ci, mi) {
+  const v = DATA.ind[IND.liquidez]?.[ci]?.[mi];
+  if (v == null) return 'gray';
+  if (v < 0.10) return 'red';
+  if (v < 0.14) return 'yellow';
+  return 'green';
+}
+
+function icnAlert(ci, mi) {
+  const v = DATA.ind[IND.icn]?.[ci]?.[mi];
+  if (v == null) return 'gray';
+  if (v < 1.0) return 'red';
+  if (v < 1.1) return 'yellow';
+  return 'green';
+}
+
+function roaAlert(ci, mi) {
+  const v = DATA.ind[IND.roa]?.[ci]?.[mi];
+  if (v == null) return 'gray';
+  if (v < 0) return 'red';
+  if (v < 0.005) return 'yellow';
+  return 'green';
+}
+
+function cidAlert(ci, mi) {
+  const v = DATA.ind[IND.cartImpDesc]?.[ci]?.[mi];
+  if (v == null) return 'gray';
+  if (v > 0.15) return 'red';
+  if (v > 0.05) return 'yellow';
+  return 'green';
+}
+
+function cobAlert(ci, mi) {
+  const v = DATA.ind[IND.cobProblem]?.[ci]?.[mi];
+  if (v == null) return 'gray';
+  if (v < 1.0) return 'red';
+  if (v < 1.5) return 'yellow';
+  return 'green';
+}
+
+function computeAlertsForCoop(ci) {
+  const res = {};
+  for (const cfg of ALERT_CFG) {
+    const rawKey = IND[cfg.key] || PAT[cfg.key];
+    res[cfg.key] = cfg.check(ci, MONTH_IDX);
+  }
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GESTIÓN DE GRÁFICAS
+// ═══════════════════════════════════════════════════════════════════════════
+function destroyChart(id) {
+  if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; }
+}
+
+function mkChart(id, cfg) {
+  destroyChart(id);
+  const el = document.getElementById(id);
+  if (!el) return;
+  CHARTS[id] = new Chart(el, cfg);
+  return CHARTS[id];
+}
+
+const C = {
+  dark:  '#163043', light: '#DCEFF2', teal: '#C5DDDD',
+  rust:  '#9D4D31', sand:  '#D9B39D', slate:'#525E64',
+  red:   '#dc2626', green: '#16a34a', yellow:'#d97706',
+  blue:  '#2563eb', purple:'#7c3aed',
+};
+
+function lineDefaults(labels, datasets) {
+  return {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 12 } } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { ticks: { font: { size: 11 } } },
+      },
+    },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT Y CONTROLES
+// ═══════════════════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const res = await fetch('data/cooperativas.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    DATA = await res.json();
+  } catch(e) {
+    document.getElementById('loading').innerHTML =
+      '<span style="color:var(--red)">Error cargando datos: '+e.message+'</span>';
+    return;
+  }
+
+  // Mes por defecto: último con datos
+  MONTH_IDX = DATA.meta.months.length - 1;
+
+  // Poblar selector de cooperativas
+  const selCoop = document.getElementById('sel-coop');
+  DATA.meta.coops.forEach((c, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = c;
+    selCoop.appendChild(opt);
+  });
+
+  // Poblar selector de meses
+  const selMonth = document.getElementById('sel-month');
+  DATA.meta.months.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = ym(m);
+    if (i === MONTH_IDX) opt.selected = true;
+    selMonth.appendChild(opt);
+  });
+
+  updateHeaderPeriodo();
+  document.getElementById('loading').style.display = 'none';
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  switchTab('alertas', false);
+}
+
+function setVista(v) {
+  VISTA = v;
+  document.getElementById('btn-sistema').classList.toggle('active', v==='sistema');
+  document.getElementById('btn-coop').classList.toggle('active', v==='coop');
+  document.getElementById('sel-coop').disabled = (v==='sistema');
+  renderActiveTab();
+}
+
+function onCoopChange() {
+  COOP_IDX = +document.getElementById('sel-coop').value;
+  renderActiveTab();
+}
+
+function onMonthChange() {
+  MONTH_IDX = +document.getElementById('sel-month').value;
+  updateHeaderPeriodo();
+  renderActiveTab();
+}
+
+function updateHeaderPeriodo() {
+  document.getElementById('header-periodo').textContent =
+    ym(DATA.meta.months[MONTH_IDX]);
+}
+
+function switchTab(tab, render=true) {
+  ACTIVE_TAB = tab;
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-pane').forEach(p =>
+    p.classList.toggle('active', p.id === 'tab-'+tab));
+  if (render && DATA) renderActiveTab();
+}
+
+function renderActiveTab() {
+  const fns = {
+    alertas: renderAlertas, ejecutiva: renderEjecutiva,
+    cartera: renderCartera, liquidez: renderLiquidez,
+    solvencia: renderSolvencia, resultados: renderResultados,
+    benchmarking: renderBenchmarking,
+  };
+  fns[ACTIVE_TAB]?.();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 1: ALERTAS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderAlertas() {
+  const filter = document.getElementById('filter-alertas').value;
+  const coops = DATA.meta.coops;
+  const mi = MONTH_IDX;
+
+  const rows = coops.map((coop, ci) => {
+    const alerts = computeAlertsForCoop(ci);
+    const counts = { red: 0, yellow: 0, green: 0, gray: 0 };
+    Object.values(alerts).forEach(v => counts[v]++);
+    return { ci, coop, alerts, counts };
+  });
+
+  const filtered = rows.filter(r => {
+    if (filter === 'red') return r.counts.red > 0;
+    if (filter === 'any') return r.counts.red + r.counts.yellow > 0;
+    return true;
+  }).sort((a,b) => (b.counts.red*3+b.counts.yellow) - (a.counts.red*3+a.counts.yellow));
+
+  // Summary pills
+  const totalRed = rows.filter(r => r.counts.red > 0).length;
+  const totalYellow = rows.filter(r => r.counts.yellow > 0 && r.counts.red === 0).length;
+  const totalGreen = rows.length - totalRed - totalYellow;
+  document.getElementById('alert-summary').innerHTML = `
+    <div class="alert-pill red">⬤ ${totalRed} cooperativas con alertas críticas</div>
+    <div class="alert-pill yellow">⬤ ${totalYellow} con alertas de atención</div>
+    <div class="alert-pill green">⬤ ${totalGreen} sin alertas</div>
+  `;
+
+  // Table
+  const headerRow = ALERT_CFG.map(c => `<th>${c.label.replace('\n','<br>')}</th>`).join('');
+  let html = `<thead><tr>
+    <th>Cooperativa</th><th>Alertas</th>
+    ${headerRow}
+    <th>Mor. 3M</th>
+  </tr></thead><tbody>`;
+
+  for (const {ci, coop, alerts, counts} of filtered) {
+    const alertBadge = counts.red > 0
+      ? `<span class="badge red">${counts.red} crítica${counts.red>1?'s':''}</span>`
+      : counts.yellow > 0
+        ? `<span class="badge yellow">${counts.yellow} atención</span>`
+        : `<span class="badge green">OK</span>`;
+
+    const cells = ALERT_CFG.map(cfg => {
+      const color = alerts[cfg.key];
+      const section = cfg.section;
+      const rawKey = section === 'ind' ? IND[cfg.key] : PAT[cfg.key];
+      const v = DATA[section][rawKey]?.[ci]?.[mi];
+      const fmt = cfg.fmt === 'pct' ? pct(v) : (v != null ? v.toFixed(3) : '—');
+      return `<td><span class="semaph ${color}">${fmt === '—' ? '?' : '&bull;'}</span> ${fmt}</td>`;
+    }).join('');
+
+    // 3-month trend for morosidad
+    const trendVals = [mi-2,mi-1,mi].map(i => DATA.ind[IND.morTotal]?.[ci]?.[i]);
+    const trend = trendVals.filter(v=>v!=null).map(v=>pct(v,2)).join(' → ');
+
+    html += `<tr>
+      <td><span class="coop-link" onclick="selectCoop(${ci})">${coop}</span></td>
+      <td>${alertBadge}</td>
+      ${cells}
+      <td style="font-size:11px">${trend}</td>
+    </tr>`;
+  }
+  html += '</tbody>';
+  document.getElementById('tbl-alertas').innerHTML = html;
+}
+
+function selectCoop(ci) {
+  COOP_IDX = ci;
+  VISTA = 'coop';
+  document.getElementById('sel-coop').value = ci;
+  document.getElementById('btn-coop').classList.add('active');
+  document.getElementById('btn-sistema').classList.remove('active');
+  document.getElementById('sel-coop').disabled = false;
+  switchTab('ejecutiva');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 2: VISTA EJECUTIVA
+// ═══════════════════════════════════════════════════════════════════════════
+function renderEjecutiva() {
+  const label = VISTA === 'coop' ? DATA.meta.coops[COOP_IDX] : 'Sistema — Segmento 1';
+  document.getElementById('eje-title').textContent = label;
+  document.getElementById('eje-sub').textContent =
+    `Mediana del sector • ${ym(DATA.meta.months[MONTH_IDX])}${VISTA==='coop'?'':' — '+DATA.meta.coops.length+' cooperativas'}`;
+
+  const kpis = [
+    { label:'Total activos',         sec:'ar',  key:AR.activos,     fmt:B,    goodDir:'up',   fmtD:'abs'  },
+    { label:'Cartera de créditos',   sec:'ar',  key:AR.cartera,     fmt:B,    goodDir:'up',   fmtD:'abs'  },
+    { label:'Oblig. con el público', sec:'ar',  key:AR.oblig,       fmt:B,    goodDir:'up',   fmtD:'abs'  },
+    { label:'Morosidad total',       sec:'ind', key:IND.morTotal,   fmt:pct,  goodDir:'down', fmtD:'pct'  },
+    { label:'Liquidez',              sec:'ind', key:IND.liquidez,   fmt:pct,  goodDir:'up',   fmtD:'pct'  },
+    { label:'ROA',                   sec:'ind', key:IND.roa,        fmt:pct,  goodDir:'up',   fmtD:'pct'  },
+    { label:'ROE',                   sec:'ind', key:IND.roe,        fmt:pct,  goodDir:'up',   fmtD:'pct'  },
+    { label:'Eficiencia (Gtos/MF)',  sec:'ind', key:IND.eficiencia, fmt:pct,  goodDir:'down', fmtD:'pct'  },
+    { label:'Solvencia',             sec:'pat', key:PAT.sol,        fmt:pct,  goodDir:'up',   fmtD:'pct'  },
+  ];
+
+  let html = '';
+  for (const k of kpis) {
+    const cur  = VISTA==='coop' ? getVal(k.sec, k.key, COOP_IDX, MONTH_IDX)
+                                : (k.fmtD==='pct'||k.fmtD==='num'
+                                    ? getSectorVal(k.sec, k.key, MONTH_IDX)
+                                    : getSectorSum(k.sec, k.key, MONTH_IDX));
+    const prev = VISTA==='coop' ? getVal(k.sec, k.key, COOP_IDX, MONTH_IDX-1)
+                                : (k.fmtD==='pct'||k.fmtD==='num'
+                                    ? getSectorVal(k.sec, k.key, MONTH_IDX-1)
+                                    : getSectorSum(k.sec, k.key, MONTH_IDX-1));
+    const dlt = delta(cur, prev, k.fmtD, k.goodDir);
+    html += `<div class="kpi-card">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-val">${k.fmt(cur)}</div>
+      <div class="kpi-meta">${dlt}<span class="kpi-trend">vs mes anterior</span></div>
+    </div>`;
+  }
+  document.getElementById('kpi-grid').innerHTML = html;
+
+  // Mini charts — últimos 24 meses
+  const n = 24;
+  const mis = lastNMonths(n);
+  const labels = mis.map(i => DATA.meta.months[i]);
+
+  const getMorSeries = () => mis.map(mi =>
+    VISTA==='coop' ? getVal('ind',IND.morTotal,COOP_IDX,mi)
+                  : getSectorVal('ind',IND.morTotal,mi));
+
+  mkChart('eje-chart-mor', {
+    type:'line', data:{ labels: labels.map(ym),
+      datasets:[{ label:'Morosidad total', data: getMorSeries().map(v=>v!=null?+(v*100).toFixed(3):null),
+        borderColor:C.rust, backgroundColor:'rgba(157,77,49,.1)', tension:.3,
+        pointRadius:0, fill:true }]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10}, callback:v=>v+'%'}} } },
+  });
+
+  const getRoaSeries = () => mis.map(mi =>
+    VISTA==='coop' ? getVal('ind',IND.roa,COOP_IDX,mi)
+                  : getSectorVal('ind',IND.roa,mi));
+
+  mkChart('eje-chart-roa', {
+    type:'line', data:{ labels: labels.map(ym),
+      datasets:[{ label:'ROA', data: getRoaSeries().map(v=>v!=null?+(v*100).toFixed(4):null),
+        borderColor:C.dark, backgroundColor:'rgba(22,48,67,.1)', tension:.3,
+        pointRadius:0, fill:true }]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10}, callback:v=>v+'%'}} } },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 3: CARTERA
+// ═══════════════════════════════════════════════════════════════════════════
+function renderCartera() {
+  const label = VISTA==='coop' ? DATA.meta.coops[COOP_IDX] : 'Sistema';
+  document.getElementById('cart-title').textContent = 'Cartera de crédito — '+label;
+  document.getElementById('cart-sub').textContent = ym(DATA.meta.months[MONTH_IDX]);
+
+  const mi = MONTH_IDX;
+  const ci = COOP_IDX;
+
+  // Composición de cartera
+  const getV = (k) => VISTA==='coop' ? getVal('clf',CLF[k],ci,mi) : getSectorSum('clf',CLF[k],mi);
+  const pv = getV('pv'), cndi = getV('cndi'), vc = getV('vencida');
+
+  mkChart('cart-chart-comp', {
+    type:'doughnut',
+    data:{ labels:['Por vencer','No devenga intereses','Vencida'],
+      datasets:[{ data:[pv,cndi,vc],
+        backgroundColor:[C.green,'rgba(217,183,157,.8)',C.red],
+        borderWidth:2 }]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{position:'bottom', labels:{font:{size:11}}},
+        tooltip:{ callbacks:{ label: ctx=>' '+B(ctx.raw)+' ('+pct(ctx.raw/(pv+cndi+vc))+')' } } } },
+  });
+
+  // Aging de cartera vencida consumo
+  const agingKeys = ['s.DE 1 A 30 DÍAS','s.DE 31 A 90 DÍAS','s.DE 91 A 180 DÍAS','s.MÁS DE 180 DÍAS'];
+  const agingLabels = ['1-30 días','31-90 días','91-180 días','+180 días'];
+  const agingVals = agingKeys.map(k => {
+    const d = DATA.clf[k];
+    if (!d) return 0;
+    if (VISTA==='coop') return d[ci]?.[mi] ?? 0;
+    return d.map(r=>r[mi]??0).reduce((a,b)=>a+b,0);
+  });
+
+  mkChart('cart-chart-aging', {
+    type:'bar', data:{ labels:agingLabels,
+      datasets:[{ label:'Cartera vencida consumo', data:agingVals,
+        backgroundColor:[C.green, C.yellow, C.sand, C.red] }]},
+    options:{ responsive:true, maintainAspectRatio:true, indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{label:ctx=>' '+B(ctx.raw)} } },
+      scales:{ x:{ticks:{font:{size:10},callback:v=>B(v)}},
+               y:{ticks:{font:{size:11}}} } },
+  });
+
+  // Evolución morosidad 24m
+  const n=24, mis=lastNMonths(n);
+  mkChart('cart-chart-mor', {
+    type:'line', data:{ labels: mis.map(i=>ym(DATA.meta.months[i])),
+      datasets:[
+        { label:'Morosidad total', data: mis.map(i=>
+            VISTA==='coop' ? getVal('ind',IND.morTotal,ci,i) : getSectorVal('ind',IND.morTotal,i)).map(v=>v!=null?+(v*100).toFixed(3):null),
+          borderColor:C.rust, tension:.3, pointRadius:0 },
+        { label:'Morosidad consumo', data: mis.map(i=>
+            VISTA==='coop' ? getVal('ind',IND.morConsumo,ci,i) : getSectorVal('ind',IND.morConsumo,i)).map(v=>v!=null?+(v*100).toFixed(3):null),
+          borderColor:C.sand, tension:.3, pointRadius:0, borderDash:[4,2] },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false, aspectRatio:3,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}} } },
+  });
+  document.getElementById('cart-chart-mor').style.height='200px';
+
+  // Tabla de indicadores de cartera
+  const tipos = [
+    ['Total',      IND.morTotal,   IND.cobProblem, null],
+    ['Consumo',    IND.morConsumo, IND.cobConsumo, null],
+    ['Productivo', IND.morProd,    IND.cobProd,    null],
+    ['Inmobiliario',IND.morInmob,  IND.cobInmob,   null],
+    ['Microcrédito',IND.morMicro,  IND.cobMicro,   null],
+  ];
+  const getI = (k) => VISTA==='coop' ? getVal('ind',k,ci,mi) : getSectorVal('ind',k,mi);
+  let tbl = `<thead><tr><th>Tipo cartera</th><th>Morosidad</th><th>Cobertura prov.</th></tr></thead><tbody>`;
+  for (const [t,km,kc] of tipos) {
+    tbl += `<tr><td>${t}</td><td>${pct(getI(km))}</td><td>${pct(getI(kc))}</td></tr>`;
+  }
+  tbl += `</tbody>`;
+  document.getElementById('tbl-cartera').innerHTML = tbl;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 4: LIQUIDEZ
+// ═══════════════════════════════════════════════════════════════════════════
+function renderLiquidez() {
+  const label = VISTA==='coop' ? DATA.meta.coops[COOP_IDX] : 'Sistema (mediana)';
+  document.getElementById('liq-title').textContent = 'Liquidez — '+label;
+
+  const allMis = DATA.meta.months.map((_,i)=>i);
+  const labels = allMis.map(i=>ym(DATA.meta.months[i]));
+  const ci = COOP_IDX;
+
+  const getSeries = (sec, key) => allMis.map(mi =>
+    VISTA==='coop' ? getVal(sec, key, ci, mi)
+                  : getSectorVal(sec, key, mi));
+
+  // Ratio de liquidez completo
+  const liqSeries = getSeries('ind', IND.liquidez).map(v=>v!=null?+(v*100).toFixed(3):null);
+  mkChart('liq-chart-ratio', {
+    type:'line', data:{ labels,
+      datasets:[
+        { label:'Liquidez', data:liqSeries, borderColor:C.dark,
+          backgroundColor:'rgba(22,48,67,.08)', fill:true, tension:.3, pointRadius:0 },
+        { label:'Mín. regulatorio (14%)', data:allMis.map(()=>14),
+          borderColor:C.red, borderDash:[6,3], pointRadius:0, borderWidth:1.5 },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'},min:0} } },
+  });
+
+  // Fondos disponibles vs Obligaciones
+  const n = 36, mis = lastNMonths(n);
+  const lbs = mis.map(i=>ym(DATA.meta.months[i]));
+  const fondos = mis.map(mi =>
+    VISTA==='coop' ? getVal('ar',AR.fondos,ci,mi) : getSectorSum('ar',AR.fondos,mi));
+  const oblig = mis.map(mi =>
+    VISTA==='coop' ? getVal('ar',AR.oblig,ci,mi) : getSectorSum('ar',AR.oblig,mi));
+
+  mkChart('liq-chart-fondos', {
+    type:'line', data:{ labels:lbs,
+      datasets:[
+        { label:'Fondos disponibles', data:fondos.map(v=>v!=null?+(v/1e6).toFixed(1):null),
+          borderColor:C.teal, tension:.3, pointRadius:0 },
+        { label:'Oblig. con el público', data:oblig.map(v=>v!=null?+(v/1e6).toFixed(1):null),
+          borderColor:C.slate, tension:.3, pointRadius:0 },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>'$'+v+'M'}} } },
+  });
+
+  // Depósitos vista vs plazo
+  const vista_dep = mis.map(mi =>
+    VISTA==='coop' ? getVal('bal','Depósitos a la vista',ci,mi) : getSectorSum('bal','Depósitos a la vista',mi));
+  const plazo_dep = mis.map(mi =>
+    VISTA==='coop' ? getVal('bal','Depósitos a plazo',ci,mi) : getSectorSum('bal','Depósitos a plazo',mi));
+
+  mkChart('liq-chart-dep', {
+    type:'bar', data:{ labels:lbs,
+      datasets:[
+        { label:'Depósitos a la vista', data:vista_dep.map(v=>v!=null?+(v/1e6).toFixed(1):null),
+          backgroundColor:'rgba(22,48,67,.6)', stack:'dep' },
+        { label:'Depósitos a plazo', data:plazo_dep.map(v=>v!=null?+(v/1e6).toFixed(1):null),
+          backgroundColor:'rgba(197,221,221,.8)', stack:'dep' },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{stacked:true, ticks:{font:{size:9},maxRotation:45}},
+               y:{stacked:true, ticks:{font:{size:10},callback:v=>'$'+v+'M'}} } },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 5: SOLVENCIA
+// ═══════════════════════════════════════════════════════════════════════════
+function renderSolvencia() {
+  const mi = MONTH_IDX;
+  const coops = DATA.meta.coops;
+
+  // KPIs del sector
+  const secSol  = getSectorVal('pat', PAT.sol, mi);
+  const secPTC  = getSectorSum('pat', PAT.ptc, mi);
+  const secAPPR = getSectorSum('pat', PAT.appr, mi);
+  const secPTR  = getSectorSum('pat', PAT.ptr, mi);
+  const excedente = secPTC && secPTR ? secPTC - secPTR : null;
+
+  document.getElementById('sol-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Solvencia mediana sector</div>
+      <div class="kpi-val">${pct(secSol)}</div>
+      <div class="kpi-meta"><span class="kpi-trend">Mínimo regulatorio: 9%</span></div></div>
+    <div class="kpi-card"><div class="kpi-label">PTC sector total</div>
+      <div class="kpi-val">${B(secPTC)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">PTR sector total</div>
+      <div class="kpi-val">${B(secPTR)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Excedente sector (PTC−PTR)</div>
+      <div class="kpi-val" style="color:${excedente>=0?'var(--green)':'var(--red)'}">
+        ${B(excedente)}</div></div>
+  `;
+
+  // Datos por coop para el periodo
+  const rows = coops.map((coop,ci)=>{
+    const sol  = getVal('pat',PAT.sol, ci,mi);
+    const ptc  = getVal('pat',PAT.ptc, ci,mi);
+    const ptr  = getVal('pat',PAT.ptr, ci,mi);
+    const exc  = ptc!=null&&ptr!=null ? ptc-ptr : null;
+    return {ci, coop, sol, ptc, ptr, exc};
+  }).filter(r=>r.sol!=null).sort((a,b)=>a.sol-b.sol);
+
+  // Bar chart solvencia
+  mkChart('sol-chart-bar', {
+    type:'bar',
+    data:{ labels: rows.map(r=>r.coop.replace(/COOP\. /,'').split(' ').slice(0,3).join(' ')),
+      datasets:[
+        { label:'Solvencia', data:rows.map(r=>+(r.sol*100).toFixed(2)),
+          backgroundColor: rows.map(r=>r.sol<0.09?C.red:r.sol<0.11?C.yellow:C.teal) },
+        { label:'Mínimo 9%', data:rows.map(()=>9),
+          type:'line', borderColor:C.rust, pointRadius:0, borderDash:[4,2], borderWidth:1.5 },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{ticks:{font:{size:8},maxRotation:90}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}, min:0} } },
+  });
+
+  // Trend 24m
+  const n=24, mis=lastNMonths(n);
+  const sectors = mis.map(i=>getSectorVal('pat',PAT.sol,i));
+  const coopSol = VISTA==='coop' ? mis.map(i=>getVal('pat',PAT.sol,COOP_IDX,i)) : null;
+
+  const datasets = [
+    { label:'Mediana sector', data:sectors.map(v=>v!=null?+(v*100).toFixed(3):null),
+      borderColor:C.slate, tension:.3, pointRadius:0, borderDash:[3,2] },
+  ];
+  if (coopSol) {
+    datasets.unshift({ label:DATA.meta.coops[COOP_IDX], data:coopSol.map(v=>v!=null?+(v*100).toFixed(3):null),
+      borderColor:C.rust, tension:.3, pointRadius:0 });
+  }
+
+  mkChart('sol-chart-trend', {
+    type:'line', data:{ labels:mis.map(i=>ym(DATA.meta.months[i])), datasets },
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'},
+                  min:0, suggestedMax:25 } } },
+  });
+
+  // Tabla completa
+  let tbl = `<thead><tr><th>#</th><th>Cooperativa</th>
+    <th>Solvencia</th><th>PTC</th><th>PTR</th><th>Excedente</th><th>% sobre mínimo</th>
+  </tr></thead><tbody>`;
+  rows.forEach((r,i)=>{
+    const overMin = r.exc!=null&&r.ptr ? (r.exc/r.ptr*100) : null;
+    const cls = r.sol<0.09?'color:var(--red);font-weight:700':r.sol<0.11?'color:var(--yellow);font-weight:600':'';
+    tbl += `<tr>
+      <td class="text-sm">${i+1}</td>
+      <td>${r.coop}</td>
+      <td style="${cls}">${pct(r.sol)}</td>
+      <td>${B(r.ptc)}</td><td>${B(r.ptr)}</td>
+      <td style="${r.exc>=0?'color:var(--green)':'color:var(--red)'}">${B(r.exc)}</td>
+      <td>${overMin!=null?overMin.toFixed(1)+'%':'—'}</td>
+    </tr>`;
+  });
+  tbl += '</tbody>';
+  document.getElementById('tbl-solvencia').innerHTML = tbl;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 6: RESULTADOS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderResultados() {
+  const mi = MONTH_IDX;
+  const ci = COOP_IDX;
+  const label = VISTA==='coop' ? DATA.meta.coops[ci] : 'Sistema (suma)';
+  document.getElementById('res-title').textContent = 'Resultados — '+label;
+  document.getElementById('res-sub').textContent = ym(DATA.meta.months[mi])+' — cifras en miles USD';
+
+  const getR = (k) => {
+    const d = DATA.res[k];
+    if (!d) return null;
+    if (VISTA==='coop') return d[ci]?.[mi] ?? null;
+    return d.map(r=>r[mi]??0).reduce((a,b)=>a+b,0);
+  };
+
+  // Waterfall — floating bars
+  const wfRows = RES_ORDER.filter(([k])=>k !== 'Ingresos');
+  const labels=[], bases=[], bars=[], colors=[], isSub=[];
+
+  let running = getR('Intereses y descuentos ganados') ?? 0;
+  let base = 0;
+
+  for (const [k, type] of wfRows) {
+    const v = getR(k);
+    if (v == null) continue;
+    if (type === 'sub' || type === 'total') {
+      labels.push(k.replace('MARGEN ','').replace('GANANCIA','UTILIDAD'));
+      bases.push(0); bars.push(v/1000); isSub.push(true);
+      colors.push(type==='total' ? C.dark : v>=0 ? 'rgba(22,160,67,.7)' : 'rgba(220,38,38,.7)');
+    } else {
+      // Mostrar variación
+    }
+  }
+
+  // Versión simplificada: mostrar los subtotales como barras horizontales
+  const subKeys = [
+    'MARGEN NETO DE INTERESES',
+    'MARGEN BRUTO FINANCIERO',
+    'MARGEN NETO FINANCIERO',
+    'MARGEN DE INTERMEDIACIÓN',
+    'MARGEN OPERACIONAL',
+    'GANANCIA ANTES DE IMPUESTOS',
+    'GANANCIA O PÉRDIDA DEL EJERCICIO',
+  ];
+  const subLabels = ['M. Neto Intereses','M. Bruto Financiero','M. Neto Financiero',
+                     'M. Intermediación','M. Operacional','Gcia. antes imp.','Utilidad/Pérdida'];
+  const subVals = subKeys.map(k=>{ const v=getR(k); return v!=null?+(v/1000).toFixed(0):null; });
+
+  mkChart('res-chart-wf', {
+    type:'bar', data:{ labels:subLabels,
+      datasets:[{ label:'Miles USD', data:subVals,
+        backgroundColor: subVals.map(v=>v>=0 ? 'rgba(22,48,67,.75)' : 'rgba(220,38,38,.75)'),
+      }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>' $'+ctx.raw.toLocaleString()+'K'}} },
+      scales:{ x:{ticks:{font:{size:11}}},
+               y:{ticks:{font:{size:10},callback:v=>'$'+v.toLocaleString()+'K'}} } },
+  });
+  document.getElementById('res-chart-wf').style.height='280px';
+
+  // ROA/ROE trend
+  const n=24, mis=lastNMonths(n);
+  const getRoaSer = () => mis.map(i=>VISTA==='coop'?getVal('ind',IND.roa,ci,i):getSectorVal('ind',IND.roa,i));
+  const getRoeSer = () => mis.map(i=>VISTA==='coop'?getVal('ind',IND.roe,ci,i):getSectorVal('ind',IND.roe,i));
+
+  mkChart('res-chart-roe', {
+    type:'line', data:{ labels:mis.map(i=>ym(DATA.meta.months[i])),
+      datasets:[
+        { label:'ROA', data:getRoaSer().map(v=>v!=null?+(v*100).toFixed(4):null),
+          borderColor:C.dark, tension:.3, pointRadius:0 },
+        { label:'ROE', data:getRoeSer().map(v=>v!=null?+(v*100).toFixed(3):null),
+          borderColor:C.rust, tension:.3, pointRadius:0 },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}} } },
+  });
+
+  // Eficiencia
+  const getEfSer = () => mis.map(i=>VISTA==='coop'?getVal('ind',IND.eficiencia,ci,i):getSectorVal('ind',IND.eficiencia,i));
+  mkChart('res-chart-ef', {
+    type:'line', data:{ labels:mis.map(i=>ym(DATA.meta.months[i])),
+      datasets:[
+        { label:'Gtos. op. / Margen financiero', data:getEfSer().map(v=>v!=null?+(v*100).toFixed(3):null),
+          borderColor:C.slate, tension:.3, pointRadius:0, fill:false },
+      ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}} } },
+  });
+
+  // Tabla waterfall
+  let tbl = `<thead><tr><th>Concepto</th><th>Valor (miles USD)</th></tr></thead><tbody>`;
+  for (const [k, type] of RES_ORDER) {
+    const v = getR(k);
+    const isBold = type === 'sub' || type === 'total';
+    const style = isBold ? 'font-weight:700;background:#f9fafb' : '';
+    tbl += `<tr style="${style}">
+      <td>${k}</td>
+      <td style="color:${v>=0?'inherit':'var(--red)'}">
+        ${v!=null ? (v<0?'(':'')+'$'+Math.abs(v/1000).toLocaleString(undefined,{maximumFractionDigits:0})+'K'+(v<0?')':'') : '—'}
+      </td>
+    </tr>`;
+  }
+  tbl += '</tbody>';
+  document.getElementById('tbl-resultados').innerHTML = tbl;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 7: BENCHMARKING
+// ═══════════════════════════════════════════════════════════════════════════
+function renderBenchmarking() {
+  const mi = MONTH_IDX;
+  const selectedCi = VISTA==='coop' ? COOP_IDX : null;
+  const coops = DATA.meta.coops;
+  const months = DATA.meta.months;
+
+  // Gráficas de percentiles históricos
+  const allMis = months.map((_,i)=>i);
+  const lbs = allMis.map(i=>ym(months[i]));
+
+  function percSeries(sec, key, p) {
+    return allMis.map(mi=>{
+      const vals = DATA[sec][key].map(r=>r[mi]).filter(v=>v!=null&&!isNaN(v));
+      return vals.length>=3 ? +(percentile(vals,p)*100).toFixed(3) : null;
+    });
+  }
+
+  function coopSeries(sec, key) {
+    if (selectedCi==null) return null;
+    return allMis.map(mi=>(DATA[sec][key][selectedCi]?.[mi]??null)).map(v=>v!=null?+(v*100).toFixed(3):null);
+  }
+
+  function bmChart(id, sec, key, title) {
+    const p25 = percSeries(sec,key,25);
+    const p50 = percSeries(sec,key,50);
+    const p75 = percSeries(sec,key,75);
+    const cs  = coopSeries(sec,key);
+    const datasets = [
+      { label:'P75', data:p75, borderColor:'rgba(197,221,221,.6)', fill:'+1',
+        backgroundColor:'rgba(197,221,221,.15)', tension:.3, pointRadius:0, borderWidth:1 },
+      { label:'P50 (mediana)', data:p50, borderColor:C.dark, tension:.3,
+        pointRadius:0, borderWidth:1.5 },
+      { label:'P25', data:p25, borderColor:'rgba(197,221,221,.6)', fill:'-1',
+        backgroundColor:'rgba(197,221,221,.15)', tension:.3, pointRadius:0, borderWidth:1 },
+    ];
+    if (cs) datasets.push({ label:coops[selectedCi], data:cs,
+      borderColor:C.rust, tension:.3, pointRadius:0, borderWidth:2, borderDash:[4,2] });
+    mkChart(id, { type:'line', data:{labels:lbs, datasets},
+      options:{ responsive:true, maintainAspectRatio:true,
+        plugins:{legend:{labels:{font:{size:10}}}},
+        scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+                 y:{ticks:{font:{size:10},callback:v=>v+'%'}} } } });
+  }
+
+  bmChart('bm-chart-mor', 'ind', IND.morTotal, 'Morosidad total');
+  bmChart('bm-chart-sol', 'pat', PAT.sol, 'Solvencia');
+  bmChart('bm-chart-liq', 'ind', IND.liquidez, 'Liquidez');
+  bmChart('bm-chart-roa', 'ind', IND.roa, 'ROA');
+
+  // Rankings
+  const vals = coops.map((coop,ci)=>({
+    coop, ci,
+    sol:  DATA.pat[PAT.sol]?.[ci]?.[mi],
+    mor:  DATA.ind[IND.morTotal]?.[ci]?.[mi],
+    roa:  DATA.ind[IND.roa]?.[ci]?.[mi],
+    act:  DATA.ar[AR.activos]?.[ci]?.[mi],
+  }));
+
+  function rankTable(id, rows, fmt, title) {
+    let h = `<thead><tr><th>#</th><th>Cooperativa</th><th>${title}</th></tr></thead><tbody>`;
+    rows.slice(0,10).forEach((r,i)=>{
+      const hl = selectedCi===r.ci ? 'background:rgba(157,77,49,.08)' : '';
+      h += `<tr style="${hl}"><td class="text-sm">${i+1}</td><td>${r.coop}</td><td>${fmt(r)}</td></tr>`;
+    });
+    h += '</tbody>';
+    document.getElementById(id).innerHTML = h;
+  }
+
+  rankTable('tbl-rank-sol', [...vals].filter(r=>r.sol!=null).sort((a,b)=>b.sol-a.sol),
+    r=>pct(r.sol), 'Solvencia');
+  rankTable('tbl-rank-mor', [...vals].filter(r=>r.mor!=null).sort((a,b)=>a.mor-b.mor),
+    r=>pct(r.mor), 'Morosidad');
+  rankTable('tbl-rank-roa', [...vals].filter(r=>r.roa!=null).sort((a,b)=>b.roa-a.roa),
+    r=>pct(r.roa), 'ROA');
+  rankTable('tbl-rank-act', [...vals].filter(r=>r.act!=null).sort((a,b)=>b.act-a.act),
+    r=>B(r.act), 'Total activos');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ARRANQUE
+// ═══════════════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

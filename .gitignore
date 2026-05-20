@@ -1,0 +1,15 @@
+# Archivos Excel fuente (no van al repo)
+source/
+*.xlsx
+*.xls
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+
+# Sistema
+.DS_Store
+Thumbs.db
