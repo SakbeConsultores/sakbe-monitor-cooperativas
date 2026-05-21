@@ -205,22 +205,19 @@ tbody tr:last-child td { border-bottom: none; }
 .ifc-badge {
   display: inline-block; font-weight: 700; font-size: 15px;
   padding: 1px 6px; border-radius: 4px; font-family: monospace; letter-spacing: .5px;
+  color: #163043;
 }
-.ifc-badge.ifc-verde      { color: #15803d; }
-.ifc-badge.ifc-am-alto    { color: #92400e; }
-.ifc-badge.ifc-am-bajo    { color: #b45309; }
-.ifc-badge.ifc-rojo       { color: #b91c1c; font-weight: 900; }
-.ifc-badge.ifc-gray       { color: #9ca3af; }
+.ifc-badge.ifc-gray { color: #9ca3af; }
 
 .ifc-cls {
   display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .4px;
   padding: 2px 8px; border-radius: 10px; white-space: nowrap;
 }
-.ifc-cls.ifc-verde   { background: rgba(22,163,74,.12);   color: #15803d; }
-.ifc-cls.ifc-am-alto { background: rgba(217,183,157,.45); color: #92400e; }
-.ifc-cls.ifc-am-bajo { background: rgba(217,119,6,.15);   color: #b45309; }
-.ifc-cls.ifc-rojo    { background: rgba(220,38,38,.12);   color: #b91c1c; }
-.ifc-cls.ifc-gray    { background: #f3f4f6;               color: #9ca3af; }
+.ifc-cls.ifc-verde   { background: var(--green-bg);        color: var(--green);  }
+.ifc-cls.ifc-am-alto { background: var(--yellow-bg);       color: var(--yellow); }
+.ifc-cls.ifc-am-bajo { background: rgba(217,119,6,.12);    color: #b45309;       }
+.ifc-cls.ifc-rojo    { background: var(--red-bg);          color: var(--red);    }
+.ifc-cls.ifc-gray    { background: #f3f4f6;                color: #9ca3af;       }
 
 .dim-cell { text-align: center; font-size: 12px; font-weight: 600; }
 .ifc-note { font-size: 11px; color: var(--slate); font-style: italic; margin-top: 6px; }
@@ -754,13 +751,13 @@ function ifcClass(score) {
   return               { label:'ROJO',           cls:'ifc-rojo'    };
 }
 
-// Color de celda de dimensión (1.0–3.0)
+// Color de texto de celda de dimensión (1.0–3.0), sin fondo
 function dimStyle(v) {
-  if (v == null) return 'background:#f5f5f5;color:#9ca3af';
-  if (v >= 2.5)  return 'background:rgba(22,163,74,.13);color:#15803d';
-  if (v >= 2.0)  return 'background:rgba(217,183,157,.35);color:#92400e';
-  if (v >= 1.5)  return 'background:rgba(217,119,6,.15);color:#b45309';
-  return           'background:rgba(220,38,38,.12);color:#b91c1c';
+  if (v == null) return 'color:#9ca3af';
+  if (v >= 2.5)  return 'color:#16a34a';   // verde
+  if (v >= 2.0)  return 'color:#d97706';   // amarillo alto
+  if (v >= 1.5)  return 'color:#b45309';   // amarillo bajo
+  return           'color:#dc2626';         // rojo
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
