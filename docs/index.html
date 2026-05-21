@@ -200,6 +200,30 @@ tbody tr:last-child td { border-bottom: none; }
 .coop-link { cursor: pointer; color: var(--rust); text-decoration: underline; }
 .coop-link:hover { color: var(--dark); }
 .periodo-label { font-size: 11px; color: var(--slate); font-style: italic; }
+
+/* ── IFC ── */
+.ifc-badge {
+  display: inline-block; font-weight: 700; font-size: 15px;
+  padding: 1px 6px; border-radius: 4px; font-family: monospace; letter-spacing: .5px;
+}
+.ifc-badge.ifc-verde      { color: #15803d; }
+.ifc-badge.ifc-am-alto    { color: #92400e; }
+.ifc-badge.ifc-am-bajo    { color: #b45309; }
+.ifc-badge.ifc-rojo       { color: #b91c1c; font-weight: 900; }
+.ifc-badge.ifc-gray       { color: #9ca3af; }
+
+.ifc-cls {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .4px;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.ifc-cls.ifc-verde   { background: rgba(22,163,74,.12);   color: #15803d; }
+.ifc-cls.ifc-am-alto { background: rgba(217,183,157,.45); color: #92400e; }
+.ifc-cls.ifc-am-bajo { background: rgba(217,119,6,.15);   color: #b45309; }
+.ifc-cls.ifc-rojo    { background: rgba(220,38,38,.12);   color: #b91c1c; }
+.ifc-cls.ifc-gray    { background: #f3f4f6;               color: #9ca3af; }
+
+.dim-cell { text-align: center; font-size: 12px; font-weight: 600; }
+.ifc-note { font-size: 11px; color: var(--slate); font-style: italic; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -227,7 +251,7 @@ tbody tr:last-child td { border-bottom: none; }
 <nav id="sidebar">
   <button class="tab-btn active" data-tab="alertas" onclick="switchTab('alertas')">
     <span class="tnum">1</span>
-    <div><div class="tlabel">Alertas</div><div class="tsub">del sistema</div></div>
+    <div><div class="tlabel">IFC</div><div class="tsub">fragilidad</div></div>
   </button>
   <button class="tab-btn" data-tab="ejecutiva" onclick="switchTab('ejecutiva')">
     <span class="tnum">2</span>
@@ -259,20 +283,22 @@ tbody tr:last-child td { border-bottom: none; }
 <main id="main">
   <div id="loading"><div class="spinner"></div> Cargando datos...</div>
 
-  <!-- TAB 1: ALERTAS -->
+  <!-- TAB 1: IFC -->
   <div class="tab-pane" id="tab-alertas">
-    <div class="sec-title">Alertas del sistema</div>
-    <div class="sec-sub">Cooperativas con señales de deterioro en los últimos 3 meses. Basado en tendencia histórica, no en umbrales fijos.</div>
+    <div class="sec-title">IFC — Índice de Fragilidad Cooperativa</div>
+    <div class="sec-sub">Modelo de alerta temprana Sakbé Consultores. Score 1,0 (máxima fragilidad) → 3,0 (máxima fortaleza). 5 dimensiones · 11 indicadores · umbrales regulatorios y sectoriales.</div>
     <div class="alert-summary" id="alert-summary"></div>
     <div class="filter-row">
       <label>Mostrar:</label>
       <select id="filter-alertas" onchange="renderAlertas()">
         <option value="all">Todas las cooperativas</option>
-        <option value="red">Solo alertas rojas</option>
-        <option value="any">Con alguna alerta</option>
+        <option value="rojo">Solo ROJO (&lt; 1,7)</option>
+        <option value="vigilancia">Vigilancia — Amarillo Bajo + Rojo</option>
+        <option value="observacion">Bajo observación o peor (IFC &lt; 2,3)</option>
       </select>
     </div>
     <div class="tbl-wrap"><table id="tbl-alertas"></table></div>
+    <div class="ifc-note">IFC = 0,30 × Solvencia + 0,25 × Calidad de activos + 0,20 × Liquidez + 0,15 × Rentabilidad + 0,10 × Eficiencia. Override: si solvencia regulatoria &lt; 9%, IFC ≤ 2,29.</div>
   </div>
 
   <!-- TAB 2: VISTA EJECUTIVA -->
@@ -457,6 +483,7 @@ const IND = {
   cartImpDesc:  'CARTERA IMPRODUCTIVA DESCUBIERTA / (PATRIMONIO + RESULTADOS)',
   cartImpPat:   'CARTERA IMPRODUCTIVA / PATRIMONIO (DIC)',
   sufPatr:      '( PATRIMONIO + RESULTADOS ) / ACTIVOS INMOVILIZADOS',
+  actImprod:    'ACTIVOS IMPRODUCTIVOS NETOS / TOTAL ACTIVOS',
   activosProd:  'ACTIVOS PRODUCTIVOS / TOTAL ACTIVOS',
   activosProdP: 'ACTIVOS PRODUCTIVOS / PASIVOS CON COSTO',
   loanToDeposit:'CARTERA BRUTA / (DEPOSITOS A LA VISTA + DEPOSITOS A PLAZO)',
@@ -623,92 +650,117 @@ function percentile(arr, p) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ALERTAS
+// IFC — ÍNDICE DE FRAGILIDAD COOPERATIVA (Sakbé Consultores v1.0)
 // ═══════════════════════════════════════════════════════════════════════════
-const ALERT_CFG = [
-  { key: 'morTotal',  section:'ind', label:'Morosidad\ntotal',    fmt:'pct', check: morAlert,    goodDir:'down' },
-  { key: 'sol',       section:'pat', label:'Solvencia',           fmt:'pct', check: solAlert,    goodDir:'up'   },
-  { key: 'liquidez',  section:'ind', label:'Liquidez',            fmt:'pct', check: liqAlert,    goodDir:'up'   },
-  { key: 'icn',       section:'ind', label:'ICN',                 fmt:'num', check: icnAlert,    goodDir:'up'   },
-  { key: 'roa',       section:'ind', label:'ROA',                 fmt:'pct', check: roaAlert,    goodDir:'up'   },
-  { key: 'cartImpDesc',section:'ind',label:'Cart. imp.\ndescubierta',fmt:'pct',check:cidAlert,  goodDir:'down' },
-  { key: 'cobProblem',section:'ind', label:'Cobertura\nproblem.',  fmt:'pct', check: cobAlert,    goodDir:'up'   },
+
+// Configuración de los 11 indicadores: sección, clave JSON, peso en dimensión,
+// y funciones de umbral (los valores en el JSON son decimales, e.g. 0.17 = 17%)
+const IFC_CFG = {
+  // ── Dimensión 1: Solvencia (30%) ──────────────────────────────────────────
+  solReg:    { sec:'pat', key: ()=>PAT.sol,        w:0.60,
+               green: v=>v>=0.14,  yellow: v=>v>=0.09  },   // PTC/APPR ≥14% verde, ≥9% amarillo
+  sufPatr:   { sec:'ind', key: ()=>IND.sufPatr,    w:0.40,
+               green: v=>v>=5.0,   yellow: v=>v>=2.5   },   // (Patrim+Result)/Act.Inmov
+  // ── Dimensión 2: Calidad de activos (25%) ─────────────────────────────────
+  morTotal:  { sec:'ind', key: ()=>IND.morTotal,   w:0.30,
+               green: v=>v<=0.05,  yellow: v=>v<=0.10  },   // Morosidad total ≤5% verde
+  morMicro:  { sec:'ind', key: ()=>IND.morMicro,   w:0.20,
+               green: v=>v<=0.07,  yellow: v=>v<=0.12  },   // Microcrédito ≤7% verde
+  cobProv:   { sec:'ind', key: ()=>IND.cobProblem, w:0.30,
+               green: v=>v>=1.00,  yellow: v=>v>=0.60  },   // Cobertura prov ≥100% verde
+  actImprod: { sec:'ind', key: ()=>IND.actImprod,  w:0.20,
+               green: v=>v<=0.03,  yellow: v=>v<=0.07  },   // Act. improductivos ≤3% verde
+  // ── Dimensión 3: Liquidez (20%) ───────────────────────────────────────────
+  liquidez:  { sec:'ind', key: ()=>IND.liquidez,   w:1.00,
+               green: v=>v>=0.20,  yellow: v=>v>=0.12  },   // FD/Dep.CP ≥20% verde
+  // ── Dimensión 4: Rentabilidad (15%) ───────────────────────────────────────
+  roa:       { sec:'ind', key: ()=>IND.roa,        w:0.50,
+               green: v=>v>0.008,  yellow: v=>v>=0     },   // ROA >0.8% verde
+  roe:       { sec:'ind', key: ()=>IND.roe,        w:0.50,
+               green: v=>v>0.05,   yellow: v=>v>=0     },   // ROE >5% verde
+  // ── Dimensión 5: Eficiencia (10%) ─────────────────────────────────────────
+  efActivos: { sec:'ind', key: ()=>IND.efActivos,  w:0.50,
+               green: v=>v<=0.04,  yellow: v=>v<=0.06  },   // GtosOp/Activo ≤4% verde
+  efMargen:  { sec:'ind', key: ()=>IND.eficiencia, w:0.50,
+               green: v=>v<=0.70,  yellow: v=>v<=0.90  },   // GtosOp/MF ≤70% verde
+};
+
+// Grupos de indicadores por dimensión y sus ponderaciones globales
+const IFC_DIMS = [
+  { id:'sol',  label:'Solvencia',         w:0.30, inds:['solReg','sufPatr']               },
+  { id:'cal',  label:'Calidad activos',   w:0.25, inds:['morTotal','morMicro','cobProv','actImprod'] },
+  { id:'liq',  label:'Liquidez',          w:0.20, inds:['liquidez']                       },
+  { id:'rent', label:'Rentabilidad',      w:0.15, inds:['roa','roe']                      },
+  { id:'ef',   label:'Eficiencia',        w:0.10, inds:['efActivos','efMargen']            },
 ];
 
-function morAlert(ci, mi) {
-  if (mi < 2) return 'gray';
-  const d = DATA.ind[IND.morTotal];
-  if (!d) return 'gray';
-  const [v0,v1,v2] = [d[ci]?.[mi], d[ci]?.[mi-1], d[ci]?.[mi-2]];
-  if (v0==null||v1==null) return 'gray';
-  const diff1 = v0 - v1, diff2 = v1 - (v2??v1);
-  if (diff1 > 0.02 && diff2 > 0) return 'red';
-  if (diff1 > 0.01) return 'yellow';
-  if (diff1 < -0.01) return 'green';
-  return 'green';
+// Score individual: 3=verde, 2=amarillo, 1=rojo, null=sin dato
+function scoreInd(v, cfg) {
+  if (v == null || isNaN(v)) return null;
+  if (cfg.green(v))  return 3;
+  if (cfg.yellow(v)) return 2;
+  return 1;
 }
 
-function solAlert(ci, mi) {
-  if (mi < 3) return 'gray';
-  const d = DATA.pat[PAT.sol];
-  if (!d) return 'gray';
-  const vals = [mi,mi-1,mi-2,mi-3].map(i => d[ci]?.[i]);
-  if (vals.some(v => v==null)) return 'gray';
-  const [v0,v1,v2,v3] = vals;
-  if (v0 < 0.09) return 'red';
-  if (v0 < v1 && v1 < v2 && v2 < v3) return 'red';
-  if (v0 < v1 && v1 < v2) return 'yellow';
-  if (v0 < 0.11) return 'yellow';
-  return 'green';
-}
+// Calcula el IFC completo para una cooperativa en un mes dado
+function computeIFC(ci, mi) {
+  // Obtener valor crudo del JSON
+  const raw = (sec, key) =>
+    sec === 'pat' ? (DATA.pat[key]?.[ci]?.[mi] ?? null)
+                  : (DATA.ind[key]?.[ci]?.[mi] ?? null);
 
-function liqAlert(ci, mi) {
-  const v = DATA.ind[IND.liquidez]?.[ci]?.[mi];
-  if (v == null) return 'gray';
-  if (v < 0.10) return 'red';
-  if (v < 0.14) return 'yellow';
-  return 'green';
-}
-
-function icnAlert(ci, mi) {
-  const v = DATA.ind[IND.icn]?.[ci]?.[mi];
-  if (v == null) return 'gray';
-  if (v < 1.0) return 'red';
-  if (v < 1.1) return 'yellow';
-  return 'green';
-}
-
-function roaAlert(ci, mi) {
-  const v = DATA.ind[IND.roa]?.[ci]?.[mi];
-  if (v == null) return 'gray';
-  if (v < 0) return 'red';
-  if (v < 0.005) return 'yellow';
-  return 'green';
-}
-
-function cidAlert(ci, mi) {
-  const v = DATA.ind[IND.cartImpDesc]?.[ci]?.[mi];
-  if (v == null) return 'gray';
-  if (v > 0.15) return 'red';
-  if (v > 0.05) return 'yellow';
-  return 'green';
-}
-
-function cobAlert(ci, mi) {
-  const v = DATA.ind[IND.cobProblem]?.[ci]?.[mi];
-  if (v == null) return 'gray';
-  if (v < 1.0) return 'red';
-  if (v < 1.5) return 'yellow';
-  return 'green';
-}
-
-function computeAlertsForCoop(ci) {
-  const res = {};
-  for (const cfg of ALERT_CFG) {
-    const rawKey = IND[cfg.key] || PAT[cfg.key];
-    res[cfg.key] = cfg.check(ci, MONTH_IDX);
+  // Scores individuales
+  const scores = {};
+  for (const [k, cfg] of Object.entries(IFC_CFG)) {
+    scores[k] = scoreInd(raw(cfg.sec, cfg.key()), cfg);
   }
-  return res;
+
+  // Score por dimensión (promedio ponderado de sus indicadores)
+  const dimScores = {};
+  for (const dim of IFC_DIMS) {
+    let total = 0, wt = 0;
+    for (const k of dim.inds) {
+      if (scores[k] == null) continue;
+      total += scores[k] * IFC_CFG[k].w;
+      wt    += IFC_CFG[k].w;
+    }
+    dimScores[dim.id] = wt > 0 ? total / wt : null;
+  }
+
+  // IFC total: promedio ponderado de dimensiones
+  let ifcTotal = 0, wt = 0;
+  for (const dim of IFC_DIMS) {
+    if (dimScores[dim.id] == null) continue;
+    ifcTotal += dimScores[dim.id] * dim.w;
+    wt       += dim.w;
+  }
+  let ifc = wt > 0 ? ifcTotal / wt : null;
+
+  // Override: solvencia regulatoria < 9% → IFC máximo 2,29
+  const solRegVal = DATA.pat[PAT.sol]?.[ci]?.[mi] ?? null;
+  if (ifc != null && solRegVal != null && solRegVal < 0.09) {
+    ifc = Math.min(ifc, 2.29);
+  }
+
+  return { ifc, ...dimScores, scores };
+}
+
+// Clasificación del IFC
+function ifcClass(score) {
+  if (score == null) return { label:'S/D',          cls:'ifc-gray'    };
+  if (score >= 2.3)  return { label:'VERDE',         cls:'ifc-verde'   };
+  if (score >= 2.0)  return { label:'AMARILLO ALTO', cls:'ifc-am-alto' };
+  if (score >= 1.7)  return { label:'AMARILLO BAJO', cls:'ifc-am-bajo' };
+  return               { label:'ROJO',           cls:'ifc-rojo'    };
+}
+
+// Color de celda de dimensión (1.0–3.0)
+function dimStyle(v) {
+  if (v == null) return 'background:#f5f5f5;color:#9ca3af';
+  if (v >= 2.5)  return 'background:rgba(22,163,74,.13);color:#15803d';
+  if (v >= 2.0)  return 'background:rgba(217,183,157,.35);color:#92400e';
+  if (v >= 1.5)  return 'background:rgba(217,119,6,.15);color:#b45309';
+  return           'background:rgba(220,38,38,.12);color:#b91c1c';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -833,69 +885,60 @@ function renderActiveTab() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 1: ALERTAS
+// TAB 1: IFC — ÍNDICE DE FRAGILIDAD COOPERATIVA
 // ═══════════════════════════════════════════════════════════════════════════
 function renderAlertas() {
   const filter = document.getElementById('filter-alertas').value;
-  const coops = DATA.meta.coops;
   const mi = MONTH_IDX;
+  const coops = DATA.meta.coops;
 
+  // Calcular IFC para todas las cooperativas
   const rows = coops.map((coop, ci) => {
-    const alerts = computeAlertsForCoop(ci);
-    const counts = { red: 0, yellow: 0, green: 0, gray: 0 };
-    Object.values(alerts).forEach(v => counts[v]++);
-    return { ci, coop, alerts, counts };
+    const r = computeIFC(ci, mi);
+    const cls = ifcClass(r.ifc);
+    return { ci, coop, ifc: r.ifc, sol: r.sol, cal: r.cal, liq: r.liq, rent: r.rent, ef: r.ef, cls };
   });
 
-  const filtered = rows.filter(r => {
-    if (filter === 'red') return r.counts.red > 0;
-    if (filter === 'any') return r.counts.red + r.counts.yellow > 0;
-    return true;
-  }).sort((a,b) => (b.counts.red*3+b.counts.yellow) - (a.counts.red*3+a.counts.yellow));
+  // Conteo por clasificación
+  const cnt = { 'ifc-verde':0, 'ifc-am-alto':0, 'ifc-am-bajo':0, 'ifc-rojo':0, 'ifc-gray':0 };
+  rows.forEach(r => cnt[r.cls.cls]++);
 
-  // Summary pills
-  const totalRed = rows.filter(r => r.counts.red > 0).length;
-  const totalYellow = rows.filter(r => r.counts.yellow > 0 && r.counts.red === 0).length;
-  const totalGreen = rows.length - totalRed - totalYellow;
   document.getElementById('alert-summary').innerHTML = `
-    <div class="alert-pill red">⬤ ${totalRed} cooperativas con alertas críticas</div>
-    <div class="alert-pill yellow">⬤ ${totalYellow} con alertas de atención</div>
-    <div class="alert-pill green">⬤ ${totalGreen} sin alertas</div>
+    <div class="alert-pill red">⬤ ${cnt['ifc-rojo']} ROJO &lt; 1,7</div>
+    <div class="alert-pill" style="background:rgba(217,119,6,.1);color:#b45309;border-color:rgba(217,119,6,.3)">⬤ ${cnt['ifc-am-bajo']} AMARILLO BAJO 1,7–2,0</div>
+    <div class="alert-pill yellow">⬤ ${cnt['ifc-am-alto']} AMARILLO ALTO 2,0–2,3</div>
+    <div class="alert-pill green">⬤ ${cnt['ifc-verde']} VERDE ≥ 2,3</div>
   `;
 
-  // Table
-  const headerRow = ALERT_CFG.map(c => `<th>${c.label.replace('\n','<br>')}</th>`).join('');
+  // Filtrar y ordenar (peor IFC primero)
+  const filtered = rows.filter(r => {
+    if (filter === 'rojo')       return r.cls.cls === 'ifc-rojo';
+    if (filter === 'vigilancia') return r.cls.cls === 'ifc-rojo' || r.cls.cls === 'ifc-am-bajo';
+    if (filter === 'observacion')return r.cls.cls !== 'ifc-verde';
+    return true;
+  }).sort((a, b) => (a.ifc ?? 99) - (b.ifc ?? 99));
+
+  // Cabecera con dimensiones
   let html = `<thead><tr>
-    <th>Cooperativa</th><th>Alertas</th>
-    ${headerRow}
-    <th>Mor. 3M</th>
+    <th>Cooperativa</th>
+    <th style="text-align:center">IFC</th>
+    <th>Clasificación</th>
+    <th style="text-align:center">Solvencia<br><small style="font-weight:400;opacity:.7">30%</small></th>
+    <th style="text-align:center">Calidad<br><small style="font-weight:400;opacity:.7">25%</small></th>
+    <th style="text-align:center">Liquidez<br><small style="font-weight:400;opacity:.7">20%</small></th>
+    <th style="text-align:center">Rentabilidad<br><small style="font-weight:400;opacity:.7">15%</small></th>
+    <th style="text-align:center">Eficiencia<br><small style="font-weight:400;opacity:.7">10%</small></th>
   </tr></thead><tbody>`;
 
-  for (const {ci, coop, alerts, counts} of filtered) {
-    const alertBadge = counts.red > 0
-      ? `<span class="badge red">${counts.red} crítica${counts.red>1?'s':''}</span>`
-      : counts.yellow > 0
-        ? `<span class="badge yellow">${counts.yellow} atención</span>`
-        : `<span class="badge green">OK</span>`;
+  const dc = (v) =>
+    `<td class="dim-cell" style="${dimStyle(v)}">${v != null ? v.toFixed(2) : '—'}</td>`;
 
-    const cells = ALERT_CFG.map(cfg => {
-      const color = alerts[cfg.key];
-      const section = cfg.section;
-      const rawKey = section === 'ind' ? IND[cfg.key] : PAT[cfg.key];
-      const v = DATA[section][rawKey]?.[ci]?.[mi];
-      const fmt = cfg.fmt === 'pct' ? pct(v) : (v != null ? v.toFixed(3) : '—');
-      return `<td><span class="semaph ${color}">${fmt === '—' ? '?' : '&bull;'}</span> ${fmt}</td>`;
-    }).join('');
-
-    // 3-month trend for morosidad
-    const trendVals = [mi-2,mi-1,mi].map(i => DATA.ind[IND.morTotal]?.[ci]?.[i]);
-    const trend = trendVals.filter(v=>v!=null).map(v=>pct(v,2)).join(' → ');
-
+  for (const r of filtered) {
     html += `<tr>
-      <td><span class="coop-link" onclick="selectCoop(${ci})">${coop}</span></td>
-      <td>${alertBadge}</td>
-      ${cells}
-      <td style="font-size:11px">${trend}</td>
+      <td><span class="coop-link" onclick="selectCoop(${r.ci})">${r.coop}</span></td>
+      <td style="text-align:center"><span class="ifc-badge ${r.cls.cls}">${r.ifc != null ? r.ifc.toFixed(2) : '—'}</span></td>
+      <td><span class="ifc-cls ${r.cls.cls}">${r.cls.label}</span></td>
+      ${dc(r.sol)}${dc(r.cal)}${dc(r.liq)}${dc(r.rent)}${dc(r.ef)}
     </tr>`;
   }
   html += '</tbody>';
