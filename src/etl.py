@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ETL Monitor de Cooperativas Financieras Ecuador - Segmento 1
-Lee los 8 archivos Excel de la SEPS (2018-2025) y genera cooperativas.json.
+Lee los archivos Excel de la SEPS (2018-2026) y genera cooperativas.json.
 
 Uso:
     python etl.py
@@ -20,7 +20,7 @@ from pathlib import Path
 
 # ── Configuración ──────────────────────────────────────────────────────────────
 
-YEARS = list(range(2018, 2026))
+YEARS = list(range(2018, 2027))
 
 # Cuentas que extraemos de Análisis Resumen (código en col A)
 # None = fila que se identifica por label en col B, no por código
@@ -511,8 +511,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--source",
         type=Path,
-        default=Path(__file__).parent,
-        help="Carpeta con los archivos Excel (default: misma carpeta que el script)",
+        default=Path(__file__).parent.parent.parent / "Monitor-Finanzas",
+        help="Carpeta con los archivos Excel (default: ../Monitor-Finanzas relativo al repo)",
     )
     parser.add_argument(
         "--output",
