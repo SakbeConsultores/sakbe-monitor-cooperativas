@@ -664,7 +664,8 @@ function delta(cur, prev, fmt, goodDir='down') {
   return `<span class="kpi-delta ${cls}">${sign} ${val}</span>`;
 }
 
-function sparklineSVG(data, color='#163043', width=80, height=28) {
+function sparklineSVG(data, color='#163043', height=28) {
+  const W = 400, H = height; // viewBox interno — se escala con CSS al 100%
   const vals = data.filter(v => v != null);
   if (vals.length < 2) return '';
   const min = Math.min(...vals);
@@ -673,17 +674,18 @@ function sparklineSVG(data, color='#163043', width=80, height=28) {
   const pts = [];
   data.forEach((v, i) => {
     if (v == null) return;
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 4) - 2;
+    const x = (i / (data.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 4) - 2;
     pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
   });
   const lastIdx = data.length - 1 - [...data].reverse().findIndex(v => v != null);
   const lastV   = data[lastIdx];
-  const lastX   = (lastIdx / (data.length - 1)) * width;
-  const lastY   = height - ((lastV - min) / range) * (height - 4) - 2;
-  return `<svg width="${width}" height="${height}" style="display:block;margin-top:4px;opacity:.75">
-    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
-    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="2.5" fill="${color}"/>
+  const lastX   = (lastIdx / (data.length - 1)) * W;
+  const lastY   = H - ((lastV - min) / range) * (H - 4) - 2;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+    style="display:block;width:100%;height:${H}px;margin-top:6px;opacity:.75">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="5" fill="${color}"/>
   </svg>`;
 }
 
