@@ -303,14 +303,40 @@ tbody tr:last-child td { border-bottom: none; }
     <div class="sec-title" id="eje-title">Vista ejecutiva</div>
     <div class="sec-sub" id="eje-sub"></div>
     <div class="kpi-grid" id="kpi-grid"></div>
+    <div class="chart-row one">
+      <div class="chart-box">
+        <div class="chart-title" id="eje-ifc-title">IFC — Índice de Fragilidad Cooperativa</div>
+        <canvas id="eje-chart-ifc"></canvas>
+      </div>
+    </div>
     <div class="chart-row two">
       <div class="chart-box">
-        <div class="chart-title">Morosidad total — 24 meses</div>
-        <canvas id="eje-chart-mor"></canvas>
+        <div class="chart-title">Activos, Cartera y Obligaciones — histórico</div>
+        <canvas id="eje-chart-bal"></canvas>
       </div>
       <div class="chart-box">
-        <div class="chart-title">ROA — 24 meses</div>
+        <div class="chart-title">Morosidad total — histórico</div>
+        <canvas id="eje-chart-mor"></canvas>
+      </div>
+    </div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">Liquidez — histórico</div>
+        <canvas id="eje-chart-liq"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Solvencia — histórico</div>
+        <canvas id="eje-chart-sol-eje"></canvas>
+      </div>
+    </div>
+    <div class="chart-row two">
+      <div class="chart-box">
+        <div class="chart-title">ROA y ROE — histórico</div>
         <canvas id="eje-chart-roa"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Eficiencia operativa — histórico</div>
+        <canvas id="eje-chart-ef"></canvas>
       </div>
     </div>
   </div>
@@ -621,14 +647,44 @@ function ym(m) { // 'YYYY-MM' → 'Mmm YYYY'
   return ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+mo]+' '+y;
 }
 
+function fmtCompact(v) {
+  if (v >= 1e9) return (v/1e9).toFixed(2)+'B';
+  if (v >= 1e6) return (v/1e6).toFixed(1)+'M';
+  if (v >= 1e3) return (v/1e3).toFixed(1)+'K';
+  return v.toFixed(2);
+}
+
 function delta(cur, prev, fmt, goodDir='down') {
   if (cur == null || prev == null) return '';
   const d = cur - prev;
   const isGood = goodDir === 'down' ? d <= 0 : d >= 0;
   const cls = (d > 0 ? 'up' : 'down') + (isGood ? ' good' : ' bad');
   const sign = d > 0 ? '▲' : '▼';
-  const val = fmt === 'pct' ? Math.abs(d*100).toFixed(2)+'pp' : Math.abs(d).toFixed(2);
+  const val = fmt === 'pct' ? Math.abs(d*100).toFixed(2)+'pp' : fmtCompact(Math.abs(d));
   return `<span class="kpi-delta ${cls}">${sign} ${val}</span>`;
+}
+
+function sparklineSVG(data, color='#163043', width=80, height=28) {
+  const vals = data.filter(v => v != null);
+  if (vals.length < 2) return '';
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 1;
+  const pts = [];
+  data.forEach((v, i) => {
+    if (v == null) return;
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  });
+  const lastIdx = data.length - 1 - [...data].reverse().findIndex(v => v != null);
+  const lastV   = data[lastIdx];
+  const lastX   = (lastIdx / (data.length - 1)) * width;
+  const lastY   = height - ((lastV - min) / range) * (height - 4) - 2;
+  return `<svg width="${width}" height="${height}" style="display:block;margin-top:4px;opacity:.75">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="2.5" fill="${color}"/>
+  </svg>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -961,70 +1017,175 @@ function renderEjecutiva() {
   document.getElementById('eje-sub').textContent =
     `Mediana del sector • ${ym(DATA.meta.months[MONTH_IDX])}${VISTA==='coop'?'':' — '+DATA.meta.coops.length+' cooperativas'}`;
 
+  const allMis = DATA.meta.months.map((_,i)=>i);
+  const ci = COOP_IDX;
+
+  // Serie histórica completa de un indicador (respeta VISTA)
+  function fullSeries(sec, key, isSum=false) {
+    return allMis.map(mi =>
+      VISTA==='coop' ? getVal(sec, key, ci, mi)
+                     : (isSum ? getSectorSum(sec, key, mi) : getSectorVal(sec, key, mi))
+    );
+  }
+
   const kpis = [
-    { label:'Total activos',         sec:'ar',  key:AR.activos,     fmt:B,    goodDir:'up',   fmtD:'abs'  },
-    { label:'Cartera de créditos',   sec:'ar',  key:AR.cartera,     fmt:B,    goodDir:'up',   fmtD:'abs'  },
-    { label:'Oblig. con el público', sec:'ar',  key:AR.oblig,       fmt:B,    goodDir:'up',   fmtD:'abs'  },
-    { label:'Morosidad total',       sec:'ind', key:IND.morTotal,   fmt:pct,  goodDir:'down', fmtD:'pct'  },
-    { label:'Liquidez',              sec:'ind', key:IND.liquidez,   fmt:pct,  goodDir:'up',   fmtD:'pct'  },
-    { label:'ROA',                   sec:'ind', key:IND.roa,        fmt:pct,  goodDir:'up',   fmtD:'pct'  },
-    { label:'ROE',                   sec:'ind', key:IND.roe,        fmt:pct,  goodDir:'up',   fmtD:'pct'  },
-    { label:'Eficiencia (Gtos/MF)',  sec:'ind', key:IND.eficiencia, fmt:pct,  goodDir:'down', fmtD:'pct'  },
-    { label:'Solvencia',             sec:'pat', key:PAT.sol,        fmt:pct,  goodDir:'up',   fmtD:'pct'  },
+    { label:'Total activos',         sec:'ar',  key:AR.activos,     fmt:B,   goodDir:'up',   fmtD:'abs', isSum:true  },
+    { label:'Cartera de créditos',   sec:'ar',  key:AR.cartera,     fmt:B,   goodDir:'up',   fmtD:'abs', isSum:true  },
+    { label:'Oblig. con el público', sec:'ar',  key:AR.oblig,       fmt:B,   goodDir:'up',   fmtD:'abs', isSum:true  },
+    { label:'Morosidad total',       sec:'ind', key:IND.morTotal,   fmt:pct, goodDir:'down', fmtD:'pct', isSum:false },
+    { label:'Liquidez',              sec:'ind', key:IND.liquidez,   fmt:pct, goodDir:'up',   fmtD:'pct', isSum:false },
+    { label:'ROA',                   sec:'ind', key:IND.roa,        fmt:pct, goodDir:'up',   fmtD:'pct', isSum:false },
+    { label:'ROE',                   sec:'ind', key:IND.roe,        fmt:pct, goodDir:'up',   fmtD:'pct', isSum:false },
+    { label:'Eficiencia (Gtos/MF)',  sec:'ind', key:IND.eficiencia, fmt:pct, goodDir:'down', fmtD:'pct', isSum:false },
+    { label:'Solvencia',             sec:'pat', key:PAT.sol,        fmt:pct, goodDir:'up',   fmtD:'pct', isSum:false },
   ];
 
   let html = '';
   for (const k of kpis) {
-    const cur  = VISTA==='coop' ? getVal(k.sec, k.key, COOP_IDX, MONTH_IDX)
-                                : (k.fmtD==='pct'||k.fmtD==='num'
-                                    ? getSectorVal(k.sec, k.key, MONTH_IDX)
-                                    : getSectorSum(k.sec, k.key, MONTH_IDX));
-    const prev = VISTA==='coop' ? getVal(k.sec, k.key, COOP_IDX, MONTH_IDX-1)
-                                : (k.fmtD==='pct'||k.fmtD==='num'
-                                    ? getSectorVal(k.sec, k.key, MONTH_IDX-1)
-                                    : getSectorSum(k.sec, k.key, MONTH_IDX-1));
-    const dlt = delta(cur, prev, k.fmtD, k.goodDir);
+    const cur  = VISTA==='coop' ? getVal(k.sec, k.key, ci, MONTH_IDX)
+                                : (k.isSum ? getSectorSum(k.sec, k.key, MONTH_IDX)
+                                           : getSectorVal(k.sec, k.key, MONTH_IDX));
+    const prev = VISTA==='coop' ? getVal(k.sec, k.key, ci, MONTH_IDX-1)
+                                : (k.isSum ? getSectorSum(k.sec, k.key, MONTH_IDX-1)
+                                           : getSectorVal(k.sec, k.key, MONTH_IDX-1));
+    const dlt   = delta(cur, prev, k.fmtD, k.goodDir);
+    const serie = fullSeries(k.sec, k.key, k.isSum);
+    const sparkColor = k.goodDir === 'up' ? C.dark : C.rust;
+    const spark = sparklineSVG(serie, sparkColor);
     html += `<div class="kpi-card">
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-val">${k.fmt(cur)}</div>
       <div class="kpi-meta">${dlt}<span class="kpi-trend">vs mes anterior</span></div>
+      ${spark}
     </div>`;
   }
   document.getElementById('kpi-grid').innerHTML = html;
 
-  // Mini charts — últimos 24 meses
-  const n = 24;
-  const mis = lastNMonths(n);
-  const labels = mis.map(i => DATA.meta.months[i]);
+  const labels = allMis.map(i => ym(DATA.meta.months[i]));
 
-  const getMorSeries = () => mis.map(mi =>
-    VISTA==='coop' ? getVal('ind',IND.morTotal,COOP_IDX,mi)
-                  : getSectorVal('ind',IND.morTotal,mi));
-
-  mkChart('eje-chart-mor', {
-    type:'line', data:{ labels: labels.map(ym),
-      datasets:[{ label:'Morosidad total', data: getMorSeries().map(v=>v!=null?+(v*100).toFixed(3):null),
-        borderColor:C.rust, backgroundColor:'rgba(157,77,49,.1)', tension:.3,
-        pointRadius:0, fill:true }]},
-    options:{ responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{display:false} },
-      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
-               y:{ticks:{font:{size:10}, callback:v=>v+'%'}} } },
+  // ─── Gráfica IFC ───────────────────────────────────────────────────────────
+  const ifcData = allMis.map(mi => {
+    if (VISTA === 'coop') {
+      const r = computeIFC(ci, mi);
+      return r.ifc != null ? +r.ifc.toFixed(3) : null;
+    } else {
+      const vals = DATA.meta.coops.map((_,cii) => computeIFC(cii, mi).ifc).filter(v => v != null);
+      return vals.length ? +median(vals).toFixed(3) : null;
+    }
   });
 
-  const getRoaSeries = () => mis.map(mi =>
-    VISTA==='coop' ? getVal('ind',IND.roa,COOP_IDX,mi)
-                  : getSectorVal('ind',IND.roa,mi));
+  document.getElementById('eje-ifc-title').textContent =
+    VISTA==='coop'
+      ? `IFC — ${DATA.meta.coops[ci]}`
+      : 'IFC — Mediana del sector (histórico completo)';
+
+  mkChart('eje-chart-ifc', {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'IFC', data:ifcData, borderColor:C.dark,
+        backgroundColor:'rgba(22,48,67,.08)', fill:true, tension:.3, pointRadius:0, borderWidth:2 },
+      { label:'Verde ≥2.3', data:allMis.map(()=>2.3),
+        borderColor:C.green, borderDash:[6,3], pointRadius:0, borderWidth:1.2 },
+      { label:'Rojo <1.7',  data:allMis.map(()=>1.7),
+        borderColor:C.red,   borderDash:[6,3], pointRadius:0, borderWidth:1.2 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{labels:{font:{size:11}}} },
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10}}, min:1, max:3,
+                  title:{display:true, text:'Score IFC', font:{size:10}}} } },
+  });
+
+  // ─── Activos, Cartera, Obligaciones ────────────────────────────────────────
+  const actSerie  = fullSeries('ar', AR.activos, true).map(v=>v!=null?+(v/1e6).toFixed(1):null);
+  const cartSerie = fullSeries('ar', AR.cartera, true).map(v=>v!=null?+(v/1e6).toFixed(1):null);
+  const obligSerie= fullSeries('ar', AR.oblig,   true).map(v=>v!=null?+(v/1e6).toFixed(1):null);
+
+  mkChart('eje-chart-bal', {
+    type:'line', data:{ labels, datasets:[
+      { label:'Total activos',   data:actSerie,   borderColor:C.dark,  tension:.3, pointRadius:0 },
+      { label:'Cartera',         data:cartSerie,  borderColor:C.teal,  tension:.3, pointRadius:0 },
+      { label:'Oblig. público',  data:obligSerie, borderColor:C.slate, tension:.3, pointRadius:0, borderDash:[4,2] },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>'$'+v+'M'}} } },
+  });
+
+  // ─── Morosidad total ────────────────────────────────────────────────────────
+  const morSerie = fullSeries('ind', IND.morTotal, false).map(v=>v!=null?+(v*100).toFixed(3):null);
+
+  mkChart('eje-chart-mor', {
+    type:'line', data:{ labels, datasets:[
+      { label:'Morosidad total', data:morSerie, borderColor:C.rust,
+        backgroundColor:'rgba(157,77,49,.1)', fill:true, tension:.3, pointRadius:0 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}, min:0} } },
+  });
+
+  // ─── Liquidez ──────────────────────────────────────────────────────────────
+  const liqSerie = fullSeries('ind', IND.liquidez, false).map(v=>v!=null?+(v*100).toFixed(3):null);
+
+  mkChart('eje-chart-liq', {
+    type:'line', data:{ labels, datasets:[
+      { label:'Liquidez', data:liqSerie, borderColor:C.teal,
+        backgroundColor:'rgba(197,221,221,.2)', fill:true, tension:.3, pointRadius:0 },
+      { label:'Mín. regulatorio (14%)', data:allMis.map(()=>14),
+        borderColor:C.red, borderDash:[6,3], pointRadius:0, borderWidth:1.5 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}, min:0} } },
+  });
+
+  // ─── Solvencia ─────────────────────────────────────────────────────────────
+  const solSerie = fullSeries('pat', PAT.sol, false).map(v=>v!=null?+(v*100).toFixed(3):null);
+
+  mkChart('eje-chart-sol-eje', {
+    type:'line', data:{ labels, datasets:[
+      { label:'Solvencia', data:solSerie, borderColor:C.dark,
+        backgroundColor:'rgba(22,48,67,.08)', fill:true, tension:.3, pointRadius:0 },
+      { label:'Mín. regulatorio (9%)', data:allMis.map(()=>9),
+        borderColor:C.red, borderDash:[6,3], pointRadius:0, borderWidth:1.5 },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{labels:{font:{size:11}}}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}, min:0} } },
+  });
+
+  // ─── ROA y ROE ─────────────────────────────────────────────────────────────
+  const roaSerie = fullSeries('ind', IND.roa, false).map(v=>v!=null?+(v*100).toFixed(4):null);
+  const roeSerie = fullSeries('ind', IND.roe, false).map(v=>v!=null?+(v*100).toFixed(3):null);
 
   mkChart('eje-chart-roa', {
-    type:'line', data:{ labels: labels.map(ym),
-      datasets:[{ label:'ROA', data: getRoaSeries().map(v=>v!=null?+(v*100).toFixed(4):null),
-        borderColor:C.dark, backgroundColor:'rgba(22,48,67,.1)', tension:.3,
-        pointRadius:0, fill:true }]},
+    type:'line', data:{ labels, datasets:[
+      { label:'ROA', data:roaSerie, borderColor:C.dark,  tension:.3, pointRadius:0 },
+      { label:'ROE', data:roeSerie, borderColor:C.rust,  tension:.3, pointRadius:0 },
+    ]},
     options:{ responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{display:false} },
+      plugins:{legend:{labels:{font:{size:11}}}},
       scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
-               y:{ticks:{font:{size:10}, callback:v=>v+'%'}} } },
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}} } },
+  });
+
+  // ─── Eficiencia ────────────────────────────────────────────────────────────
+  const efSerie = fullSeries('ind', IND.eficiencia, false).map(v=>v!=null?+(v*100).toFixed(3):null);
+
+  mkChart('eje-chart-ef', {
+    type:'line', data:{ labels, datasets:[
+      { label:'Gtos. op. / Margen financiero', data:efSerie,
+        borderColor:C.slate, tension:.3, pointRadius:0, fill:false },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+               y:{ticks:{font:{size:10},callback:v=>v+'%'}} } },
   });
 }
 
@@ -1189,27 +1350,68 @@ function renderLiquidez() {
 // TAB 5: SOLVENCIA
 // ═══════════════════════════════════════════════════════════════════════════
 function renderSolvencia() {
-  const mi = MONTH_IDX;
-  const coops = DATA.meta.coops;
+  const mi     = MONTH_IDX;
+  const ci     = COOP_IDX;
+  const coops  = DATA.meta.coops;
+  const allMis = DATA.meta.months.map((_,i)=>i);
 
-  // KPIs del sector
-  const secSol  = getSectorVal('pat', PAT.sol, mi);
-  const secPTC  = getSectorSum('pat', PAT.ptc, mi);
-  const secAPPR = getSectorSum('pat', PAT.appr, mi);
-  const secPTR  = getSectorSum('pat', PAT.ptr, mi);
-  const excedente = secPTC && secPTR ? secPTC - secPTR : null;
+  // KPIs — respeta VISTA (cooperativa o sector)
+  let solVal, ptcVal, ptrVal, excdVal, kpiLabel;
+  if (VISTA === 'coop') {
+    solVal   = getVal('pat', PAT.sol, ci, mi);
+    ptcVal   = getVal('pat', PAT.ptc, ci, mi);
+    ptrVal   = getVal('pat', PAT.ptr, ci, mi);
+    excdVal  = ptcVal != null && ptrVal != null ? ptcVal - ptrVal : null;
+    kpiLabel = DATA.meta.coops[ci];
+  } else {
+    solVal   = getSectorVal('pat', PAT.sol, mi);
+    ptcVal   = getSectorSum('pat', PAT.ptc, mi);
+    ptrVal   = getSectorSum('pat', PAT.ptr, mi);
+    excdVal  = ptcVal && ptrVal ? ptcVal - ptrVal : null;
+    kpiLabel = 'Sector';
+  }
+
+  // Series históricas para sparklines
+  const solSparkData = allMis.map(m => VISTA==='coop' ? getVal('pat',PAT.sol,ci,m) : getSectorVal('pat',PAT.sol,m));
+  const ptcSparkData = allMis.map(m => VISTA==='coop' ? getVal('pat',PAT.ptc,ci,m) : getSectorSum('pat',PAT.ptc,m));
+  const ptrSparkData = allMis.map(m => VISTA==='coop' ? getVal('pat',PAT.ptr,ci,m) : getSectorSum('pat',PAT.ptr,m));
+  const excSparkData = allMis.map((_,idx) => {
+    const p = ptcSparkData[idx], r = ptrSparkData[idx];
+    return p != null && r != null ? p - r : null;
+  });
+
+  // Deltas vs mes anterior
+  const solPrev  = VISTA==='coop' ? getVal('pat',PAT.sol,ci,mi-1) : getSectorVal('pat',PAT.sol,mi-1);
+  const ptcPrev  = VISTA==='coop' ? getVal('pat',PAT.ptc,ci,mi-1) : getSectorSum('pat',PAT.ptc,mi-1);
+  const ptrPrev  = VISTA==='coop' ? getVal('pat',PAT.ptr,ci,mi-1) : getSectorSum('pat',PAT.ptr,mi-1);
+  const excPrev  = ptcPrev != null && ptrPrev != null ? ptcPrev - ptrPrev : null;
 
   document.getElementById('sol-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Solvencia mediana sector</div>
-      <div class="kpi-val">${pct(secSol)}</div>
-      <div class="kpi-meta"><span class="kpi-trend">Mínimo regulatorio: 9%</span></div></div>
-    <div class="kpi-card"><div class="kpi-label">PTC sector total</div>
-      <div class="kpi-val">${B(secPTC)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">PTR sector total</div>
-      <div class="kpi-val">${B(secPTR)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Excedente sector (PTC−PTR)</div>
-      <div class="kpi-val" style="color:${excedente>=0?'var(--green)':'var(--red)'}">
-        ${B(excedente)}</div></div>
+    <div class="kpi-card">
+      <div class="kpi-label">Solvencia — ${kpiLabel}</div>
+      <div class="kpi-val">${pct(solVal)}</div>
+      <div class="kpi-meta">${delta(solVal,solPrev,'pct','up')}<span class="kpi-trend">Mín. regulatorio: 9%</span></div>
+      ${sparklineSVG(solSparkData, C.dark)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">PTC — ${kpiLabel}</div>
+      <div class="kpi-val">${B(ptcVal)}</div>
+      <div class="kpi-meta">${delta(ptcVal,ptcPrev,'abs','up')}<span class="kpi-trend">vs mes anterior</span></div>
+      ${sparklineSVG(ptcSparkData, C.teal)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">PTR — ${kpiLabel}</div>
+      <div class="kpi-val">${B(ptrVal)}</div>
+      <div class="kpi-meta">${delta(ptrVal,ptrPrev,'abs','up')}<span class="kpi-trend">vs mes anterior</span></div>
+      ${sparklineSVG(ptrSparkData, C.slate)}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Excedente — ${kpiLabel} (PTC−PTR)</div>
+      <div class="kpi-val" style="color:${excdVal>=0?'var(--green)':'var(--red)'}">
+        ${B(excdVal)}</div>
+      <div class="kpi-meta">${delta(excdVal,excPrev,'abs','up')}<span class="kpi-trend">vs mes anterior</span></div>
+      ${sparklineSVG(excSparkData, excdVal != null && excdVal >= 0 ? C.green : C.red)}
+    </div>
   `;
 
   // Datos por coop para el periodo
