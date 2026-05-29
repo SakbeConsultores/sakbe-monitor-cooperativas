@@ -35,8 +35,44 @@ CUENTAS_AR = {
 }
 LABEL_PATRIMONIO_AR = "Total Patrimonio"
 
-# Cuentas del Balance (código exacto en col A)
-CUENTAS_BAL = {"2101", "2103"}
+# Cuentas del Balance con nombre como clave (legado — no cambiar para no romper el dashboard)
+CUENTAS_BAL_NAMED = {"2101", "2103"}
+
+# Cuentas del Balance adicionales para el ICTL: clave = código de cuenta (string)
+# Pasivos exigibles (denominador ILON, ICI, ITL) + activos comprometidos (1202, 130705, 1601)
+CUENTAS_BAL_ICTL = {
+    # Activos comprometidos / interfinancieros que reducen liquidez neta
+    "1202",   # Operaciones de reporto con instituciones financieras (activo)
+    "130705", # Entregadas para operaciones de reporto (activo)
+    "1601",   # Intereses por cobrar de operaciones interfinancieras (activo)
+    # Obligaciones con el público
+    "2102",   # Operaciones de reporto
+    # Operaciones interfinancieras pasivas
+    "2202",   # Operaciones de reporto con entidades financieras
+    # Obligaciones inmediatas
+    "2304",   # Valores en circulación y cupones por pagar
+    # Cuentas por pagar (intereses)
+    "250110", # Intereses por pagar: operaciones de reporto
+    "250130", # Intereses por pagar: reporto con entidades financieras
+    "250135", # Intereses por pagar: obligaciones financieras
+    "250145", # Intereses por pagar: obligaciones
+    # Cuentas por pagar varias
+    "2503",   # Obligaciones patronales
+    "2507",   # Obligaciones por compra de cartera
+    # Obligaciones financieras
+    "2602",   # Con instituciones financieras del país y SFPS
+    "2603",   # Con entidades financieras del exterior
+    "2604",   # Con entidades del grupo popular y solidario
+    "2606",   # Con entidades financieras públicas
+    "2607",   # Con organismos multilaterales
+    "2610",   # Con el fondo de liquidez del SFPS
+    "2690",   # Otras obligaciones financieras
+    # Valores en circulación
+    "2702",   # Obligaciones (bonos/valores)
+}
+
+# Conjunto unificado para el extractor
+CUENTAS_BAL = CUENTAS_BAL_NAMED | CUENTAS_BAL_ICTL
 
 # Filas de Clasificación de Cartera a incluir (código en col A)
 CLF_INCLUDE = {
@@ -44,6 +80,13 @@ CLF_INCLUDE = {
     "1", "53", "105", "157", "158", "159", "160",
     # Por vencer: subtotales por tipo
     "2", "8", "13", "18", "42", "47",
+    # Por vencer ≤30 días por tipo (para ICTL: ICI, ICC, ITL)
+    "3",  # a.DE 1 A 30 DÍAS — productivo
+    "9",  # b.DE 1 A 30 DÍAS — consumo
+    "14", # c.DE 1 A 30 DÍAS — inmobiliario
+    "19", # d.DE 1 A 30 DÍAS — microcrédito
+    "43", # h.DE 1 A 30 DÍAS — vivienda interés público
+    "48", # i.DE 1 A 30 DÍAS — educativo
     # Vencida: subtotales por tipo
     "106", "112", "117", "122", "146", "151",
     # Vencida productivo: bandas temporales
@@ -227,15 +270,19 @@ def extract_balance(wb):
     """
     Hoja 'Balance': fechas en R1, coops en R2, datos desde R4.
     Col A = código de cuenta (hasta 6 dígitos), Col B = nombre.
-    Solo extrae las cuentas en CUENTAS_BAL.
+
+    Cuentas legado (2101, 2103): clave = nombre en col B (backwards-compatible con el dashboard).
+    Cuentas ICTL nuevas: clave = código numérico en col A (evita colisiones de nombre).
     """
     ws = wb["Balance"]
 
     def label_fn(row):
         a = str(row[0]).strip() if row and row[0] is not None else ""
         b = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
-        if a in CUENTAS_BAL:
-            return b or a
+        if a in CUENTAS_BAL_NAMED:
+            return b or a          # legado: clave = nombre
+        if a in CUENTAS_BAL_ICTL:
+            return a               # ICTL: clave = código de cuenta
         return None
 
     return extract_rows(

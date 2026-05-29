@@ -274,6 +274,10 @@ tbody tr:last-child td { border-bottom: none; }
     <span class="tnum">7</span>
     <div><div class="tlabel">Bench-</div><div class="tsub">marking</div></div>
   </button>
+  <button class="tab-btn" data-tab="sgle" onclick="switchTab('sgle')">
+    <span class="tnum">8</span>
+    <div><div class="tlabel">SGLE</div><div class="tsub">ICTL</div></div>
+  </button>
 </nav>
 
 <!-- ── MAIN ───────────────────────────────────────────────────────────────── -->
@@ -468,6 +472,12 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
     </div>
   </div>
+
+  <!-- TAB 8: SGLE -->
+  <div class="tab-pane" id="tab-sgle">
+    <div id="sgle-content"></div>
+  </div>
+
 </main>
 
 <script>
@@ -934,7 +944,7 @@ function renderActiveTab() {
     alertas: renderAlertas, ejecutiva: renderEjecutiva,
     cartera: renderCartera, liquidez: renderLiquidez,
     solvencia: renderSolvencia, resultados: renderResultados,
-    benchmarking: renderBenchmarking,
+    benchmarking: renderBenchmarking, sgle: renderSGLE,
   };
   fns[ACTIVE_TAB]?.();
 }
@@ -1676,6 +1686,338 @@ function renderBenchmarking() {
     r=>pct(r.roa), 'ROA');
   rankTable('tbl-rank-act', [...vals].filter(r=>r.act!=null).sort((a,b)=>b.act-a.act),
     r=>B(r.act), 'Total activos');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB 8: SGLE — SISTEMA DE GESTIÓN DE LIQUIDEZ ESTRUCTURAL
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Umbrales del ICTL (Lineamientos de Cálculo ICTL v1.0) ────────────────
+// inverse:true → indicador inverso (menor valor raw = mejor = mayor score)
+const ICTL_THR = {
+  ILON:  { verde: 3.52,   amarillo: 2.56,   inverse: false },
+  ICI:   { verde: 0.618,  amarillo: 0.54,   inverse: false },
+  ICInt: { verde: 2.379,  amarillo: 2.000,  inverse: false },
+  ICC:   { verde: 0.0323, amarillo: 0.0299, inverse: false },
+  ITL:   { verde: 0.284,  amarillo: 0.390,  inverse: true  },
+};
+
+// Score 0–100 con interpolación lineal entre umbrales (100 = mejor)
+function scoreIndicator(val, thr) {
+  if (val == null || !isFinite(val)) return null;
+  const { verde, amarillo, inverse } = thr;
+  if (!inverse) {
+    if (val >= verde)    return 100;
+    if (val >= amarillo) return 50 + 50 * (val - amarillo) / (verde - amarillo);
+    return Math.max(0, 50 * val / amarillo);
+  } else {
+    // ITL: valor más bajo = mejor
+    if (val <= verde)    return 100;
+    if (val <= amarillo) return 100 - 50 * (val - verde) / (amarillo - verde);
+    return Math.max(0, 50 - 50 * (val - amarillo) / amarillo);
+  }
+}
+
+// Cuentas de Pasivos Exigibles (incluye activos comprometidos per policy)
+const ICTL_PE_ACCTS = [
+  '1202','130705','1601',
+  '2102','2202','2304',
+  '250110','250130','250135','250145',
+  '2503','2507',
+  '2602','2603','2604','2606','2607','2610','2690',
+  '2702',
+];
+// Cartera por vencer ≤30 días — una banda por tipo de crédito
+const ICTL_C30D_KEYS = [
+  'a.DE 1 A 30 DÍAS', // productivo
+  'b.DE 1 A 30 DÍAS', // consumo
+  'c.DE 1 A 30 DÍAS', // inmobiliario
+  'd.DE 1 A 30 DÍAS', // microcrédito
+  'h.DE 1 A 30 DÍAS', // vivienda interés público
+  'i.DE 1 A 30 DÍAS', // educativo
+];
+
+function ictl_getPE(ci, mi) {
+  return ICTL_PE_ACCTS.reduce((s,k) => s + (DATA.bal[k]?.[ci]?.[mi] ?? 0), 0);
+}
+function ictl_getSectorPE(mi) {
+  return ICTL_PE_ACCTS.reduce((s,k) => {
+    const d = DATA.bal[k]; if (!d) return s;
+    return s + d.reduce((ss,row) => ss + (row[mi] ?? 0), 0);
+  }, 0);
+}
+function ictl_getC30d(ci, mi) {
+  return ICTL_C30D_KEYS.reduce((s,k) => s + (DATA.clf[k]?.[ci]?.[mi] ?? 0), 0);
+}
+function ictl_getSectorC30d(mi) {
+  return ICTL_C30D_KEYS.reduce((s,k) => {
+    const d = DATA.clf[k]; if (!d) return s;
+    return s + d.reduce((ss,row) => ss + (row[mi] ?? 0), 0);
+  }, 0);
+}
+
+// Calcula todos los indicadores y scores del ICTL para un período.
+// ci < 0 → modo sector (suma de cooperativas)
+function calcICTL(ci, mi) {
+  const isSector = ci < 0;
+  const fondos  = isSector ? getSectorSum('ar','Fondos Disponibles',mi)             : getVal('ar','Fondos Disponibles',ci,mi);
+  const pe      = isSector ? ictl_getSectorPE(mi)                                    : ictl_getPE(ci,mi);
+  const c30d    = isSector ? ictl_getSectorC30d(mi)                                  : ictl_getC30d(ci,mi);
+  const intG    = isSector ? getSectorSum('res','Intereses y descuentos ganados',mi) : getVal('res','Intereses y descuentos ganados',ci,mi);
+  const intC    = isSector ? getSectorSum('res','Intereses causados',mi)             : getVal('res','Intereses causados',ci,mi);
+  const bruta   = isSector ? getSectorSum('clf','TOTAL CARTERA BRUTA',mi)            : getVal('clf','TOTAL CARTERA BRUTA',ci,mi);
+
+  const ilon_r  = (fondos && pe)     ? fondos / pe           : null;
+  const ici_r   = (c30d  && pe)     ? c30d  / pe            : null;
+  const icint_r = (intG  && intC)   ? intG  / intC          : null;
+  const icc_r   = (c30d  && bruta)  ? c30d  / bruta         : null;
+  const den_itl = (fondos ?? 0) + c30d;
+  const itl_r   = (pe && den_itl)   ? pe    / den_itl       : null;
+
+  const s_ilon  = scoreIndicator(ilon_r,  ICTL_THR.ILON);
+  const s_ici   = scoreIndicator(ici_r,   ICTL_THR.ICI);
+  const s_icint = scoreIndicator(icint_r, ICTL_THR.ICInt);
+  const s_icc   = scoreIndicator(icc_r,   ICTL_THR.ICC);
+  const s_itl   = scoreIndicator(itl_r,   ICTL_THR.ITL);
+
+  if ([s_ilon,s_ici,s_icint,s_icc,s_itl].some(s => s === null)) return null;
+
+  const ictl = s_ilon*0.25 + s_ici*0.20 + s_icint*0.20 + s_icc*0.10 + s_itl*0.25;
+  // Sub-índices (todos en escala 0–100)
+  const sli = s_ilon*0.5 + s_itl*0.5;   // Liquidez Inmediata
+  const ssf = s_icint;                    // Sostenibilidad Financiera
+  const sec = s_ici*0.7 + s_icc*0.3;     // Estructura de Cartera
+
+  return {
+    raw:    { ilon:ilon_r, ici:ici_r, icint:icint_r, icc:icc_r, itl:itl_r },
+    scores: { ilon:s_ilon, ici:s_ici, icint:s_icint, icc:s_icc, itl:s_itl },
+    ictl, sli, ssf, sec,
+  };
+}
+
+// Análisis de tendencia sobre el ICTL histórico
+function calcTrendICTL(scoreFn, mi) {
+  const now  = scoreFn(mi);
+  const m3   = mi >= 3 ? scoreFn(mi-3) : null;
+  const m6   = mi >= 6 ? scoreFn(mi-6) : null;
+  const S3   = (now != null && m3 != null) ? (now - m3) / 3 : null;
+  const S6   = (now != null && m6 != null) ? (now - m6) / 6 : null;
+  const A    = (S3 != null && S6 != null)  ? S3 - S6        : null;
+  let P = null;
+  if (mi >= 5) {
+    const diffs = [];
+    for (let i = mi-5; i < mi; i++) {
+      const a = scoreFn(i), b = scoreFn(i+1);
+      if (a != null && b != null) diffs.push(Math.sign(b-a));
+    }
+    if (diffs.length >= 3) {
+      const pos = diffs.filter(d=>d>0).length;
+      const neg = diffs.filter(d=>d<0).length;
+      P = Math.max(pos,neg) / diffs.length * 100;
+    }
+  }
+  return { S3, S6, A, P };
+}
+
+function renderSGLE() {
+  const ci    = VISTA === 'coop' ? COOP_IDX : -1;
+  const mi    = MONTH_IDX;
+  const label = VISTA === 'coop' ? DATA.meta.coops[COOP_IDX] : 'Sistema — Segmento 1';
+  const el    = document.getElementById('sgle-content');
+
+  const res = calcICTL(ci, mi);
+  if (!res) {
+    el.innerHTML = '<p style="padding:24px;color:#888">Datos insuficientes para calcular el ICTL en el periodo seleccionado.</p>';
+    return;
+  }
+
+  // Colores y niveles
+  function ictlLevel(v) {
+    if (v > 80) return { level:'Bajo',     color:'#2a7a4a', action:'Operaciones normales. Mantener monitoreo mensual estándar.' };
+    if (v > 60) return { level:'Moderado', color:'#b8860b', action:'Activar seguimiento activo. Revisar tendencias y mecanismos preventivos.' };
+    if (v > 40) return { level:'Alto',     color:'#c06020', action:'Revisión urgente de políticas de fondeo, cartera y vencimientos.' };
+    return             { level:'Crítico',  color:'#9d3810', action:'Activar plan de contingencia. Informar al ALCO y al Consejo de Administración.' };
+  }
+  function semColor(s) {
+    if (s >= 66.7) return '#2a7a4a';
+    if (s >= 33.3) return '#b8860b';
+    return '#9d3810';
+  }
+  const lvl = ictlLevel(res.ictl);
+
+  // Tendencia
+  const scoreFn = m => {
+    if (m < 0 || m >= DATA.meta.months.length) return null;
+    return calcICTL(ci, m)?.ictl ?? null;
+  };
+  const trend = calcTrendICTL(scoreFn, mi);
+
+  // Serie histórica ICTL
+  const ictlSeries = DATA.meta.months.map((_,m) => calcICTL(ci,m)?.ictl ?? null);
+
+  // Helpers de formato
+  function barH(v, color, h=8) {
+    const pct = Math.min(100, Math.max(0, v ?? 0)).toFixed(1);
+    return `<div style="background:#e0e0e0;border-radius:4px;height:${h}px;margin-top:5px">
+      <div style="background:${color};width:${pct}%;height:${h}px;border-radius:4px"></div></div>`;
+  }
+  function subCard(name, val, desc) {
+    const c = semColor(val ?? 0);
+    return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;flex:1;min-width:150px">
+      <div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${name}</div>
+      <div style="font-size:30px;font-weight:800;color:${c}">${val!=null?val.toFixed(1):'—'}</div>
+      ${barH(val??0,c)}
+      <div style="font-size:10px;color:#aaa;margin-top:7px">${desc}</div>
+    </div>`;
+  }
+  function dot(s) {
+    const c = semColor(s??0);
+    return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-right:6px;vertical-align:middle;flex-shrink:0"></span>`;
+  }
+  function indRow(name, raw, score, fmtFn, desc) {
+    const c = semColor(score??0);
+    return `<tr>
+      <td style="padding:8px 12px;font-weight:600;white-space:nowrap">${dot(score)}${name}</td>
+      <td style="padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums">${raw!=null?fmtFn(raw):'—'}</td>
+      <td style="padding:8px 12px;text-align:right">
+        <span style="font-weight:700;color:${c}">${score!=null?score.toFixed(1):'—'}</span>
+        <span style="font-size:10px;color:#aaa"> /100</span>
+        ${barH(score??0,c,5)}
+      </td>
+      <td style="padding:8px 12px;font-size:11px;color:#666;max-width:220px">${desc}</td>
+    </tr>`;
+  }
+  function trendRow(name, val, signalTxt, signalColor, desc) {
+    return `<tr>
+      <td style="padding:8px 12px;font-weight:600">${name}</td>
+      <td style="padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums">${val!=null?val.toFixed(2):'—'}</td>
+      <td style="padding:8px 12px;text-align:right;font-weight:600;color:${signalColor||'inherit'}">${signalTxt}</td>
+      <td style="padding:8px 12px;font-size:11px;color:#666">${desc}</td>
+    </tr>`;
+  }
+  function s3Signal(v) {
+    if (v==null) return ['—','inherit'];
+    if (v>2)  return ['▲ Mejora rápida','#2a7a4a'];
+    if (v<-2) return ['▼ Deterioro rápido','#9d3810'];
+    return ['→ Estable','#b8860b'];
+  }
+  function s6Signal(v) {
+    if (v==null) return ['—','inherit'];
+    if (v>1)  return ['▲ Mejora estructural','#2a7a4a'];
+    if (v<-1) return ['▼ Deterioro estructural','#9d3810'];
+    return ['→ Estable','#b8860b'];
+  }
+  function aSignal(v) {
+    if (v==null) return ['—','inherit'];
+    if (v>1)  return ['↑ Acelerando','#c06020'];
+    if (v<-1) return ['↓ Moderando','#2a7a4a'];
+    return ['= Consistente','inherit'];
+  }
+
+  const [s3t,s3c] = s3Signal(trend.S3);
+  const [s6t,s6c] = s6Signal(trend.S6);
+  const [at, ac]  = aSignal(trend.A);
+
+  el.innerHTML = `
+    <div class="sec-title">SGLE — Sistema de Gestión de Liquidez Estructural</div>
+    <div class="sec-sub">${label} · ${ym(DATA.meta.months[mi])}</div>
+
+    <!-- ── Score ICTL ─────────────────────────────────────────────── -->
+    <div style="background:${lvl.color}18;border:2px solid ${lvl.color}50;border-radius:12px;padding:20px 24px;margin-bottom:20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+      <div style="text-align:center;min-width:110px">
+        <div style="font-size:11px;font-weight:700;color:${lvl.color};text-transform:uppercase;letter-spacing:.09em">ICTL</div>
+        <div style="font-size:56px;font-weight:800;color:${lvl.color};line-height:1.05">${res.ictl.toFixed(1)}</div>
+        <div style="font-size:10px;color:#999">de 100 puntos</div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:19px;font-weight:700;color:${lvl.color};margin-bottom:4px">Tensión ${lvl.level}</div>
+        <div style="font-size:12px;color:#666;margin-bottom:14px">${lvl.action}</div>
+        <div style="background:#ddd;border-radius:6px;height:10px">
+          <div style="background:${lvl.color};width:${Math.min(100,res.ictl).toFixed(1)}%;height:10px;border-radius:6px"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#aaa;margin-top:3px">
+          <span>0 Crítico</span><span>40</span><span>60</span><span>80</span><span>100 Bajo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sub-índices ─────────────────────────────────────────────── -->
+    <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:10px">Nivel 1 — Sub-índices complementarios</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      ${subCard('SLI — Liquidez Inmediata', res.sli, 'ILON 50% + ITL 50%')}
+      ${subCard('SSF — Sostenibilidad Fin.', res.ssf, 'ICInt 100%')}
+      ${subCard('SEC — Estructura Cartera', res.sec, 'ICI 70% + ICC 30%')}
+    </div>
+
+    <!-- ── Indicadores individuales ───────────────────────────────── -->
+    <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:10px">Nivel 3 — Indicadores individuales (base del ICTL)</div>
+    <div class="tbl-wrap" style="margin-bottom:20px">
+      <table>
+        <thead><tr>
+          <th>Indicador</th><th style="text-align:right">Valor raw</th>
+          <th style="text-align:right;min-width:90px">Score /100</th>
+          <th>Descripción &amp; umbral verde</th>
+        </tr></thead>
+        <tbody>
+          ${indRow('ILON',res.raw.ilon,res.scores.ilon, v=>v.toFixed(3), 'Activos líquidos / Pasivos exigibles. Verde &gt;3.52 · Peso 25%')}
+          ${indRow('ICI', res.raw.ici, res.scores.ici,  v=>v.toFixed(3), 'Cartera ≤30d / Pasivos exigibles. Verde &gt;0.618 · Peso 20%')}
+          ${indRow('ICInt',res.raw.icint,res.scores.icint, v=>v.toFixed(3), 'Intereses ganados / Intereses causados. Verde &gt;2.379 · Peso 20%')}
+          ${indRow('ICC',res.raw.icc,res.scores.icc, v=>(v*100).toFixed(2)+'%', 'Cartera ≤30d / Cartera bruta. Verde &gt;3.23% · Peso 10%')}
+          ${indRow('ITL',res.raw.itl,res.scores.itl, v=>v.toFixed(3), 'Pasivos exig. / (Líquidos+Cartera30d). Inverso ↓ Verde &lt;0.284 · Peso 25%')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Análisis de tendencia ───────────────────────────────────── -->
+    <div style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:10px">Nivel 2 — Análisis de tendencias</div>
+    <div class="tbl-wrap" style="margin-bottom:20px">
+      <table>
+        <thead><tr>
+          <th>Métrica</th><th style="text-align:right">Valor</th>
+          <th style="text-align:right">Señal</th><th>Interpretación</th>
+        </tr></thead>
+        <tbody>
+          ${trendRow('S3 — Pendiente 3 meses',trend.S3,s3t,s3c,'Velocidad reciente. S3&gt;2 = mejora rápida | S3&lt;-2 = deterioro rápido')}
+          ${trendRow('S6 — Pendiente 6 meses',trend.S6,s6t,s6c,'Tendencia estructural. S6&gt;1 = mejora | S6&lt;-1 = deterioro')}
+          ${trendRow('A — Aceleración',trend.A,at,ac,'S3 − S6. A&gt;1 = acelerando | A&lt;-1 = moderando')}
+          ${trendRow('P — Persistencia',trend.P,
+            trend.P!=null?trend.P.toFixed(0)+'%':'—','inherit',
+            '% de meses (últimos 6) que siguen la dirección dominante')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Gráfica histórica ───────────────────────────────────────── -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <div class="chart-title">Evolución histórica del ICTL — ${label}</div>
+      <canvas id="sgle-ictl-chart"></canvas>
+    </div>
+  `;
+
+  // También reemplazar subCard con función que acepta el value correcto
+  // (ya está inline arriba — el template literal lo evaluó correctamente)
+
+  // ── Chart ──
+  if (CHARTS['sgle-ictl-chart']) CHARTS['sgle-ictl-chart'].destroy();
+  CHARTS['sgle-ictl-chart'] = new Chart(document.getElementById('sgle-ictl-chart'), {
+    type: 'line',
+    data: {
+      labels: DATA.meta.months.map(m => ym(m)),
+      datasets: [{
+        label: 'ICTL', data: ictlSeries,
+        borderColor: lvl.color, backgroundColor: lvl.color+'22',
+        fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks:{ font:{size:9}, maxRotation:45 } },
+        y: { min:0, max:100, ticks:{ font:{size:10} } },
+      },
+    },
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
