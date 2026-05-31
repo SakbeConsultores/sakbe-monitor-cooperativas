@@ -217,6 +217,50 @@ tbody tr:last-child td { border-bottom: none; }
 .coop-link:hover { color: var(--dark); }
 .periodo-label { font-size: 11px; color: var(--slate); font-style: italic; }
 .spark { display: inline-block; }
+
+/* ── IFC Score Box (CAMELS) ── */
+.ifb-score-box {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 20px 24px; display: flex; align-items: center; gap: 24px; margin-bottom: 16px;
+}
+.ifb-score-num { font-size: 56px; font-weight: 800; line-height: 1; }
+.ifb-solid  { color: #1f7a4b; }
+.ifb-stable { color: #3a9e6a; }
+.ifb-watch  { color: #c8820a; }
+.ifb-fragil { color: #b83232; }
+.ifb-label  { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.ifb-meta   { font-size: 11px; color: var(--slate); margin-top: 2px; }
+
+/* ── CAMELS Cards ── */
+.camels-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 16px 0; }
+.camels-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; text-align: center;
+}
+.camels-card .c-dim   { font-size: 20px; font-weight: 800; color: var(--dark); }
+.camels-card .c-name  { font-size: 10px; color: var(--slate); text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0; }
+.camels-card .c-score { font-size: 26px; font-weight: 700; }
+.camels-card .c-bar   { height: 4px; border-radius: 2px; margin-top: 6px; background: var(--border); }
+.camels-card .c-fill  { height: 100%; border-radius: 2px; }
+.score-3 { color: #1f7a4b; } .fill-3 { background: #1f7a4b; width: 100%; }
+.score-2 { color: #c8820a; } .fill-2 { background: #c8820a; width: 66%; }
+.score-1 { color: #b83232; } .fill-1 { background: #b83232; width: 33%; }
+.score-null { color: var(--border); }
+
+/* ── Tabla ranking (data-table) ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--white); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.data-table th { background: var(--dark); color: var(--white); padding: 9px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.data-table th.num, .data-table td.num { text-align: right; }
+.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--light); }
+.data-table .bank-name { font-weight: 600; }
+.rank-badge { display: inline-block; background: var(--teal); color: var(--dark); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+
+/* ── Chart wrap (para el ranking table) ── */
+.chart-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.chart-wrap .chart-title { font-size: 13px; font-weight: 600; color: var(--dark); margin-bottom: 12px; }
+
 </style>
 </head>
 <body>
@@ -260,22 +304,28 @@ tbody tr:last-child td { border-bottom: none; }
 <div id="content">
   <div id="loading"><span class="spinner"></span> Cargando datos...</div>
 
-  <!-- TAB 1: IFC -->
+  <!-- TAB 1: IFC (CAMELS v2.0) -->
   <div class="tab-pane" id="tab-alertas">
-    <div class="sec-title">IFC — Índice de Fragilidad Cooperativa</div>
-    <div class="sec-sub">Modelo de alerta temprana Sakbé Consultores. Score 1,0 (máxima fragilidad) → 3,0 (máxima fortaleza). 5 dimensiones · 11 indicadores · umbrales regulatorios y sectoriales.</div>
-    <div class="alert-summary" id="alert-summary"></div>
-    <div class="filter-row">
-      <label>Mostrar:</label>
-      <select id="filter-alertas" onchange="renderAlertas()">
-        <option value="all">Todas las cooperativas</option>
-        <option value="rojo">Solo ROJO (&lt; 1,7)</option>
-        <option value="vigilancia">Vigilancia — Amarillo Bajo + Rojo</option>
-        <option value="observacion">Bajo observación o peor (IFC &lt; 2,3)</option>
-      </select>
+    <!-- Score + Radar + Histórico -->
+    <div class="ifb-score-box">
+      <div>
+        <div class="ifb-score-num" id="ifc-score-num">—</div>
+        <div class="ifb-label" id="ifc-score-cat">—</div>
+        <div class="ifb-meta">Índice de Fragilidad Cooperativa · CAMELS · Escala 1,0 – 3,0</div>
+      </div>
+      <div style="flex:1">
+        <canvas id="ifc-radar-chart" height="220"></canvas>
+      </div>
+      <div style="width:280px">
+        <canvas id="ifc-hist-chart" height="220"></canvas>
+      </div>
     </div>
-    <div class="tbl-wrap"><table id="tbl-alertas"></table></div>
-    <div class="ifc-note">IFC = 0,30 × Solvencia + 0,25 × Calidad de activos + 0,20 × Liquidez + 0,15 × Rentabilidad + 0,10 × Eficiencia. Override: si solvencia regulatoria &lt; 9%, IFC ≤ 2,29.</div>
+    <div class="camels-grid" id="ifc-camels-cards"></div>
+    <div class="chart-wrap">
+      <div class="chart-title">IFC — Ranking cooperativas · Período seleccionado</div>
+      <div id="ifc-ranking-table"></div>
+    </div>
+    <div class="ifc-note">IFC (CAMELS) = 0,25×Capital + 0,20×Activos + 0,15×Gestión + 0,20×Rentabilidad + 0,15×Liquidez + 0,05×Sensibilidad. Escala 1–3: Frágil · Atención · Estable · Sólido.</div>
   </div>
 
   <!-- TAB 2: VISTA EJECUTIVA -->
@@ -691,118 +741,117 @@ function percentile(arr, p) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// IFC — ÍNDICE DE FRAGILIDAD COOPERATIVA (Sakbé Consultores v1.0)
+// IFC — ÍNDICE DE FRAGILIDAD COOPERATIVA · METODOLOGÍA CAMELS (v2.0)
+// Espejo del IFB de bancos, adaptado a indicadores del JSON de cooperativas.
+// Escala 1.0–3.0 (3=sólido, 1=frágil). Seis dimensiones CAMELS.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Configuración de los 11 indicadores: sección, clave JSON, peso en dimensión,
-// y funciones de umbral (los valores en el JSON son decimales, e.g. 0.17 = 17%)
-const IFC_CFG = {
-  // ── Dimensión 1: Solvencia (30%) ──────────────────────────────────────────
-  solReg:    { sec:'pat', key: ()=>PAT.sol,        w:0.60,
-               green: v=>v>=0.14,  yellow: v=>v>=0.09  },   // PTC/APPR ≥14% verde, ≥9% amarillo
-  sufPatr:   { sec:'ind', key: ()=>IND.sufPatr,    w:0.40,
-               green: v=>v>=5.0,   yellow: v=>v>=2.5   },   // (Patrim+Result)/Act.Inmov
-  // ── Dimensión 2: Calidad de activos (25%) ─────────────────────────────────
-  morTotal:  { sec:'ind', key: ()=>IND.morTotal,   w:0.30,
-               green: v=>v<=0.05,  yellow: v=>v<=0.10  },   // Morosidad total ≤5% verde
-  morMicro:  { sec:'ind', key: ()=>IND.morMicro,   w:0.20,
-               green: v=>v<=0.07,  yellow: v=>v<=0.12  },   // Microcrédito ≤7% verde
-  cobProv:   { sec:'ind', key: ()=>IND.cobProblem, w:0.30,
-               green: v=>v>=1.00,  yellow: v=>v>=0.60  },   // Cobertura prov ≥100% verde
-  actImprod: { sec:'ind', key: ()=>IND.actImprod,  w:0.20,
-               green: v=>v<=0.03,  yellow: v=>v<=0.07  },   // Act. improductivos ≤3% verde
-  // ── Dimensión 3: Liquidez (20%) ───────────────────────────────────────────
-  liquidez:  { sec:'ind', key: ()=>IND.liquidez,   w:1.00,
-               green: v=>v>=0.20,  yellow: v=>v>=0.12  },   // FD/Dep.CP ≥20% verde
-  // ── Dimensión 4: Rentabilidad (15%) ───────────────────────────────────────
-  roa:       { sec:'ind', key: ()=>IND.roa,        w:0.50,
-               green: v=>v>0.008,  yellow: v=>v>=0     },   // ROA >0.8% verde
-  roe:       { sec:'ind', key: ()=>IND.roe,        w:0.50,
-               green: v=>v>0.05,   yellow: v=>v>=0     },   // ROE >5% verde
-  // ── Dimensión 5: Eficiencia (10%) ─────────────────────────────────────────
-  efActivos: { sec:'ind', key: ()=>IND.efActivos,  w:0.50,
-               green: v=>v<=0.04,  yellow: v=>v<=0.06  },   // GtosOp/Activo ≤4% verde
-  efMargen:  { sec:'ind', key: ()=>IND.eficiencia, w:0.50,
-               green: v=>v<=0.70,  yellow: v=>v<=0.90  },   // GtosOp/MF ≤70% verde
-};
-
-// Grupos de indicadores por dimensión y sus ponderaciones globales
-const IFC_DIMS = [
-  { id:'sol',  label:'Solvencia',         w:0.30, inds:['solReg','sufPatr']               },
-  { id:'cal',  label:'Calidad activos',   w:0.25, inds:['morTotal','morMicro','cobProv','actImprod'] },
-  { id:'liq',  label:'Liquidez',          w:0.20, inds:['liquidez']                       },
-  { id:'rent', label:'Rentabilidad',      w:0.15, inds:['roa','roe']                      },
-  { id:'ef',   label:'Eficiencia',        w:0.10, inds:['efActivos','efMargen']            },
-];
-
-// Score individual: 3=verde, 2=amarillo, 1=rojo, null=sin dato
-function scoreInd(v, cfg) {
+// Scoring por indicador: retorna 3 (sólido), 2 (estable) o 1 (frágil)
+// dir='high': más es mejor. dir='low': menos es mejor.
+function score1_c(v, tLow, tHigh, dir) {
   if (v == null || isNaN(v)) return null;
-  if (cfg.green(v))  return 3;
-  if (cfg.yellow(v)) return 2;
+  if (dir === 'high') {
+    if (v >= tHigh) return 3;
+    if (v >= tLow)  return 2;
+    return 1;
+  } else {
+    if (v <= tLow)  return 3;
+    if (v <= tHigh) return 2;
+    return 1;
+  }
+}
+
+function avg_c(...vals) {
+  const clean = vals.filter(v => v != null);
+  return clean.length ? clean.reduce((a,b)=>a+b,0)/clean.length : null;
+}
+
+// Peer group para liquidez (L): todas las cooperativas del sector
+function computeLScore_C(ci, mi) {
+  const allIdxs = DATA.meta.coops.map((_,i)=>i);
+  const liqCi = DATA.ind[IND.liquidez]?.[ci]?.[mi] ?? null;
+  const allLiq = allIdxs
+    .map(i => DATA.ind[IND.liquidez]?.[i]?.[mi] ?? null)
+    .filter(v => v != null);
+
+  if (liqCi == null || allLiq.length === 0) return null;
+  const below = allLiq.filter(v => v < liqCi).length;
+  const equal = allLiq.filter(v => v === liqCi).length;
+  const pctil = ((below + equal * 0.5) / allLiq.length) * 100;
+
+  if (pctil >= 65) return 3;
+  if (pctil >= 35) return 2;
   return 1;
 }
 
-// Calcula el IFC completo para una cooperativa en un mes dado
+// Calcula el IFC (CAMELS) completo para una cooperativa en un mes dado
 function computeIFC(ci, mi) {
-  // Obtener valor crudo del JSON
-  const raw = (sec, key) =>
-    sec === 'pat' ? (DATA.pat[key]?.[ci]?.[mi] ?? null)
-                  : (DATA.ind[key]?.[ci]?.[mi] ?? null);
+  const g  = (k) => (DATA.ind[k]?.[ci]?.[mi] ?? null);
+  const gp = (k) => (DATA.pat[k]?.[ci]?.[mi] ?? null);
 
-  // Scores individuales
-  const scores = {};
-  for (const [k, cfg] of Object.entries(IFC_CFG)) {
-    scores[k] = scoreInd(raw(cfg.sec, cfg.key()), cfg);
+  // C — Capital (25%): solvencia regulatoria + ICN
+  const C = avg_c(
+    score1_c(gp(PAT.sol),        0.09, 0.12, 'high'),  // PTC/APR ≥9%/12%
+    score1_c(g(IND.icn),         0.08, 0.10, 'high')   // ICN FK/FI ≥8%/10%
+  );
+  // A — Activos (20%): activos improductivos, morosidad, cobertura
+  const A = avg_c(
+    score1_c(g(IND.actImprod),   0.08, 0.12, 'low'),   // Act. improd. ≤8%/12%
+    score1_c(g(IND.morTotal),    0.03, 0.05, 'low'),   // Mora total ≤3%/5%
+    score1_c(g(IND.cobProblem),  1.0,  2.0,  'high')   // Cobertura ≥1x/2x
+  );
+  // M — Gestión (15%): eficiencia operativa
+  const M = avg_c(
+    score1_c(g(IND.eficiencia),  0.70, 0.90, 'low'),   // Gastos/Margen ≤70%/90%
+    score1_c(g(IND.efActivos),   0.035,0.06, 'low')    // Gastos/Activo ≤3.5%/6%
+  );
+  // E — Rentabilidad (20%): ROA + ROE
+  const E = avg_c(
+    score1_c(g(IND.roa), 0.005, 0.015, 'high'),        // ROA ≥0.5%/1.5%
+    score1_c(g(IND.roe), 0.05,  0.12,  'high')         // ROE ≥5%/12%
+  );
+  // L — Liquidez (15%): score por percentil sectorial
+  const L = computeLScore_C(ci, mi);
+  // S — Sensibilidad (5%): vulnerabilidad patrimonial
+  const S = score1_c(g(IND.cartImpDesc), -0.10, 0.0, 'low'); // Cartera impr. descubierta
+
+  const dims = { C, A, M, E, L, S };
+  const W    = { C:0.25, A:0.20, M:0.15, E:0.20, L:0.15, S:0.05 };
+  let ifc=0, tw=0;
+  for (const [d,w] of Object.entries(W)) {
+    if (dims[d] != null) { ifc += dims[d]*w; tw += w; }
   }
-
-  // Score por dimensión (promedio ponderado de sus indicadores)
-  const dimScores = {};
-  for (const dim of IFC_DIMS) {
-    let total = 0, wt = 0;
-    for (const k of dim.inds) {
-      if (scores[k] == null) continue;
-      total += scores[k] * IFC_CFG[k].w;
-      wt    += IFC_CFG[k].w;
-    }
-    dimScores[dim.id] = wt > 0 ? total / wt : null;
-  }
-
-  // IFC total: promedio ponderado de dimensiones
-  let ifcTotal = 0, wt = 0;
-  for (const dim of IFC_DIMS) {
-    if (dimScores[dim.id] == null) continue;
-    ifcTotal += dimScores[dim.id] * dim.w;
-    wt       += dim.w;
-  }
-  let ifc = wt > 0 ? ifcTotal / wt : null;
-
-  // Override: solvencia regulatoria < 9% → IFC máximo 2,29
-  const solRegVal = DATA.pat[PAT.sol]?.[ci]?.[mi] ?? null;
-  if (ifc != null && solRegVal != null && solRegVal < 0.09) {
-    ifc = Math.min(ifc, 2.29);
-  }
-
-  return { ifc, ...dimScores, scores };
+  return { ifc: tw>0 ? ifc/tw : null, dims };
 }
 
-// Clasificación del IFC
-function ifcClass(score) {
-  if (score == null) return { label:'S/D',          cls:'ifc-gray'    };
-  if (score >= 2.3)  return { label:'VERDE',         cls:'ifc-verde'   };
-  if (score >= 2.0)  return { label:'AMARILLO ALTO', cls:'ifc-am-alto' };
-  if (score >= 1.7)  return { label:'AMARILLO BAJO', cls:'ifc-am-bajo' };
-  return               { label:'ROJO',           cls:'ifc-rojo'    };
+// Categoría del IFC
+function ifcCategory(v) {
+  if (v == null) return { label:'S/D',      cls:'ifc-gray'    };
+  if (v >= 2.5)  return { label:'Sólido',   cls:'ifc-verde'   };
+  if (v >= 2.0)  return { label:'Estable',  cls:'ifc-am-alto' };
+  if (v >= 1.5)  return { label:'Atención', cls:'ifc-am-bajo' };
+  return           { label:'Frágil',   cls:'ifc-rojo'    };
 }
 
-// Color de texto de celda de dimensión (1.0–3.0), sin fondo
+// Clase de color para semáforo de score (1–3)
+function ifcSemaClass(v) {
+  if (v == null) return 'score-null';
+  if (v >= 2.5) return 'score-3';
+  if (v >= 2.0) return 'score-2';
+  return 'score-1';
+}
+
+// Estilo de texto para celda de dimensión (1–3)
 function dimStyle(v) {
   if (v == null) return 'color:#9ca3af';
-  if (v >= 2.5)  return 'color:#16a34a';   // verde
-  if (v >= 2.0)  return 'color:#d97706';   // amarillo alto
-  if (v >= 1.5)  return 'color:#b45309';   // amarillo bajo
-  return           'color:#dc2626';         // rojo
+  if (v >= 2.5)  return 'color:#16a34a';
+  if (v >= 2.0)  return 'color:#d97706';
+  if (v >= 1.5)  return 'color:#b45309';
+  return           'color:#dc2626';
 }
+
+// Compatibilidad: ifcClass ya no existe como función separada — usar ifcCategory
+function ifcClass(score) { return ifcCategory(score); }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GESTIÓN DE GRÁFICAS
@@ -932,64 +981,161 @@ function renderActiveTab() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TAB 1: IFC — ÍNDICE DE FRAGILIDAD COOPERATIVA
+// TAB 1: IFC — ÍNDICE DE FRAGILIDAD COOPERATIVA (CAMELS v2.0)
+// Espejo del tab IFB de bancos. Score 1.0–3.0, seis dimensiones CAMELS.
 // ═══════════════════════════════════════════════════════════════════════════
 function renderAlertas() {
-  const filter = document.getElementById('filter-alertas').value;
-  const mi = MONTH_IDX;
+  const mi    = MONTH_IDX;
+  const ci    = COOP_IDX;
   const coops = DATA.meta.coops;
 
-  // Calcular IFC para todas las cooperativas
-  const rows = coops.map((coop, ci) => {
-    const r = computeIFC(ci, mi);
-    const cls = ifcClass(r.ifc);
-    return { ci, coop, ifc: r.ifc, sol: r.sol, cal: r.cal, liq: r.liq, rent: r.rent, ef: r.ef, cls };
-  });
+  const { ifc, dims } = computeIFC(ci, mi);
+  const cat = ifcCategory(ifc);
 
-  // Conteo por clasificación
-  const cnt = { 'ifc-verde':0, 'ifc-am-alto':0, 'ifc-am-bajo':0, 'ifc-rojo':0, 'ifc-gray':0 };
-  rows.forEach(r => cnt[r.cls.cls]++);
+  // ── Score principal ──────────────────────────────────────────────────────
+  const numEl = document.getElementById('ifc-score-num');
+  if (numEl) {
+    numEl.textContent = ifc != null ? ifc.toFixed(2) : '—';
+    numEl.className = 'ifb-score-num ' + (ifc != null ? (
+      ifc >= 2.5 ? 'ifb-solid' : ifc >= 2.0 ? 'ifb-stable' : ifc >= 1.5 ? 'ifb-watch' : 'ifb-fragil'
+    ) : 'score-null');
+  }
+  const catEl = document.getElementById('ifc-score-cat');
+  if (catEl) catEl.textContent = cat.label;
 
-  document.getElementById('alert-summary').innerHTML = `
-    <div class="alert-pill red">⬤ ${cnt['ifc-rojo']} ROJO &lt; 1,7</div>
-    <div class="alert-pill" style="background:rgba(217,119,6,.1);color:#b45309;border-color:rgba(217,119,6,.3)">⬤ ${cnt['ifc-am-bajo']} AMARILLO BAJO 1,7–2,0</div>
-    <div class="alert-pill yellow">⬤ ${cnt['ifc-am-alto']} AMARILLO ALTO 2,0–2,3</div>
-    <div class="alert-pill green">⬤ ${cnt['ifc-verde']} VERDE ≥ 2,3</div>
-  `;
+  // ── CAMELS cards ─────────────────────────────────────────────────────────
+  const dimNames    = { C:'Capital', A:'Activos', M:'Gestión', E:'Rentabilidad', L:'Liquidez', S:'Sensibilidad' };
+  const dimWeights  = { C:'25%',     A:'20%',     M:'15%',     E:'20%',          L:'15%',      S:'5%'           };
+  let cardsHtml = '';
+  for (const [d, name] of Object.entries(dimNames)) {
+    const s    = dims[d];
+    const sc   = s != null ? s.toFixed(2) : '—';
+    const scInt = s != null ? Math.round(s) : null;
+    cardsHtml += `<div class="camels-card" style="cursor:pointer" title="${name}">
+      <div class="c-dim">${d}</div>
+      <div class="c-name">${name}</div>
+      <div class="c-score ${scInt ? 'score-'+scInt : 'score-null'}">${sc}</div>
+      <div class="c-bar"><div class="c-fill ${scInt ? 'fill-'+scInt : ''}" style="${scInt ? '' : 'width:0'}"></div></div>
+      <div style="font-size:10px;color:var(--slate);margin-top:4px">Peso ${dimWeights[d]}</div>
+    </div>`;
+  }
+  const cardsEl = document.getElementById('ifc-camels-cards');
+  if (cardsEl) cardsEl.innerHTML = cardsHtml;
 
-  // Filtrar y ordenar (peor IFC primero)
-  const filtered = rows.filter(r => {
-    if (filter === 'rojo')       return r.cls.cls === 'ifc-rojo';
-    if (filter === 'vigilancia') return r.cls.cls === 'ifc-rojo' || r.cls.cls === 'ifc-am-bajo';
-    if (filter === 'observacion')return r.cls.cls !== 'ifc-verde';
-    return true;
-  }).sort((a, b) => (a.ifc ?? 99) - (b.ifc ?? 99));
+  // ── Radar: cooperativa vs sector (mediana) ───────────────────────────────
+  const dimsOrder = ['C','A','M','E','L','S'];
+  const coopData  = dimsOrder.map(d => dims[d] ?? null);
 
-  // Cabecera con dimensiones
-  let html = `<thead><tr>
-    <th>Cooperativa</th>
-    <th style="text-align:center">IFC</th>
-    <th>Clasificación</th>
-    <th style="text-align:center">Solvencia<br><small style="font-weight:400;opacity:.7">30%</small></th>
-    <th style="text-align:center">Calidad<br><small style="font-weight:400;opacity:.7">25%</small></th>
-    <th style="text-align:center">Liquidez<br><small style="font-weight:400;opacity:.7">20%</small></th>
-    <th style="text-align:center">Rentabilidad<br><small style="font-weight:400;opacity:.7">15%</small></th>
-    <th style="text-align:center">Eficiencia<br><small style="font-weight:400;opacity:.7">10%</small></th>
+  // Mediana del sector para el radar
+  const sectorDims = {};
+  for (const d of dimsOrder) {
+    const vals = coops.map((_,i) => {
+      const r = computeIFC(i, mi);
+      return r.dims[d];
+    }).filter(v => v != null).sort((a,b)=>a-b);
+    const m = Math.floor(vals.length/2);
+    sectorDims[d] = vals.length % 2 ? vals[m] : (vals[m-1]+vals[m])/2;
+  }
+
+  if (typeof Chart !== 'undefined') {
+    if (CHARTS['ifc-radar']) { CHARTS['ifc-radar'].destroy(); }
+    const ctxR = document.getElementById('ifc-radar-chart');
+    if (ctxR) {
+      CHARTS['ifc-radar'] = new Chart(ctxR, {
+        type: 'radar',
+        data: {
+          labels: dimsOrder.map(d => dimNames[d]),
+          datasets: [
+            { label: VISTA==='coop' ? DATA.meta.coops[ci] : 'Sector',
+              data: coopData,
+              borderColor: '#163043', backgroundColor: 'rgba(22,48,67,0.15)' },
+            { label: 'Mediana sector',
+              data: dimsOrder.map(d => sectorDims[d] ?? null),
+              borderColor: '#9D4D31', backgroundColor: 'rgba(157,77,49,0.10)',
+              borderDash: [4,2] },
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          scales:{ r:{ min:0, max:3, ticks:{stepSize:1,font:{size:9}},
+                       pointLabels:{font:{size:11}} } },
+          plugins:{ legend:{display:true, labels:{font:{size:10}, boxWidth:10}} },
+          elements:{ point:{radius:3} }
+        }
+      });
+    }
+
+    // ── Histórico IFC ───────────────────────────────────────────────────────
+    const allMis = DATA.meta.months.map((_,i)=>i);
+    const labels = allMis.map(i => {
+      const [y,mo] = DATA.meta.months[i].split('-');
+      return ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+mo]+' '+y;
+    });
+    const ifcSerie = allMis.map(m => {
+      const r = VISTA==='coop' ? computeIFC(ci,m) : (() => {
+        const vals = coops.map((_,i) => computeIFC(i,m).ifc).filter(v=>v!=null).sort((a,b)=>a-b);
+        const mid = Math.floor(vals.length/2);
+        return { ifc: vals.length % 2 ? vals[mid] : (vals[mid-1]+vals[mid])/2 };
+      })();
+      return r.ifc != null ? +r.ifc.toFixed(3) : null;
+    });
+
+    if (CHARTS['ifc-hist']) { CHARTS['ifc-hist'].destroy(); }
+    const ctxH = document.getElementById('ifc-hist-chart');
+    if (ctxH) {
+      CHARTS['ifc-hist'] = new Chart(ctxH, {
+        type:'line',
+        data:{ labels, datasets:[
+          { label: VISTA==='coop' ? DATA.meta.coops[ci] : 'Mediana sector',
+            data: ifcSerie,
+            borderColor:'#163043', backgroundColor:'rgba(22,48,67,.08)', fill:true, tension:.3, pointRadius:0 },
+          { label:'Sólido ≥2.5', data:allMis.map(()=>2.5),
+            borderColor:'#16a34a', borderDash:[6,3], pointRadius:0, borderWidth:1.2 },
+          { label:'Frágil <1.5', data:allMis.map(()=>1.5),
+            borderColor:'#dc2626', borderDash:[6,3], pointRadius:0, borderWidth:1.2 },
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{labels:{font:{size:11}}} },
+          scales:{ x:{ticks:{font:{size:9},maxRotation:45}},
+                   y:{min:1,max:3, ticks:{font:{size:10}},
+                      title:{display:true,text:'Score IFC',font:{size:10}}} } }
+      });
+    }
+  }
+
+  // ── Ranking CAMELS de todas las cooperativas ─────────────────────────────
+  const allScores = coops.map((coop, i) => {
+    const { ifc: sc, dims: d2 } = computeIFC(i, mi);
+    return { ci:i, coop, ifc:sc, dims:d2 };
+  }).sort((a,b) => (a.ifc??99)-(b.ifc??99));
+
+  let thtml = `<table class="data-table"><thead><tr>
+    <th>#</th><th>Cooperativa</th><th class="num">IFC</th>
+    <th class="num">Capital</th><th class="num">Activos</th>
+    <th class="num">Gestión</th><th class="num">Rentabilidad</th>
+    <th class="num">Liquidez</th><th class="num">Sensibilidad</th>
+    <th>Categoría</th>
   </tr></thead><tbody>`;
 
-  const dc = (v) =>
-    `<td class="dim-cell" style="${dimStyle(v)}">${v != null ? v.toFixed(2) : '—'}</td>`;
-
-  for (const r of filtered) {
-    html += `<tr>
-      <td><span class="coop-link" onclick="selectCoop(${r.ci})">${r.coop}</span></td>
-      <td style="text-align:center"><span class="ifc-badge ${r.cls.cls}">${r.ifc != null ? r.ifc.toFixed(2) : '—'}</span></td>
-      <td><span class="ifc-cls ${r.cls.cls}">${r.cls.label}</span></td>
-      ${dc(r.sol)}${dc(r.cal)}${dc(r.liq)}${dc(r.rent)}${dc(r.ef)}
+  allScores.forEach((row, idx) => {
+    const c2  = ifcCategory(row.ifc);
+    const hiBg = row.ci === ci ? 'background:var(--light);' : '';
+    thtml += `<tr style="${hiBg}cursor:pointer" onclick="selectCoop(${row.ci})">
+      <td><span class="rank-badge">${idx+1}</span></td>
+      <td class="bank-name">${row.coop}</td>
+      <td class="num ${ifcSemaClass(row.ifc)}">${row.ifc!=null?row.ifc.toFixed(2):'—'}</td>
+      <td class="num ${row.dims.C?'score-'+Math.round(row.dims.C):''}">${row.dims.C!=null?row.dims.C.toFixed(2):'—'}</td>
+      <td class="num ${row.dims.A?'score-'+Math.round(row.dims.A):''}">${row.dims.A!=null?row.dims.A.toFixed(2):'—'}</td>
+      <td class="num ${row.dims.M?'score-'+Math.round(row.dims.M):''}">${row.dims.M!=null?row.dims.M.toFixed(2):'—'}</td>
+      <td class="num ${row.dims.E?'score-'+Math.round(row.dims.E):''}">${row.dims.E!=null?row.dims.E.toFixed(2):'—'}</td>
+      <td class="num ${row.dims.L?'score-'+Math.round(row.dims.L):''}">${row.dims.L!=null?row.dims.L.toFixed(2):'—'}</td>
+      <td class="num ${row.dims.S?'score-'+Math.round(row.dims.S):''}">${row.dims.S!=null?row.dims.S.toFixed(2):'—'}</td>
+      <td><span class="${c2.cls}" style="font-weight:600">${c2.label}</span></td>
     </tr>`;
-  }
-  html += '</tbody>';
-  document.getElementById('tbl-alertas').innerHTML = html;
+  });
+  thtml += '</tbody></table>';
+  const rankEl = document.getElementById('ifc-ranking-table');
+  if (rankEl) rankEl.innerHTML = thtml;
 }
 
 function selectCoop(ci) {
@@ -1674,40 +1820,66 @@ function renderBenchmarking() {
 // TAB 8: SGLE — SISTEMA DE GESTIÓN DE LIQUIDEZ ESTRUCTURAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ─── Umbrales del ICTL (Lineamientos de Cálculo ICTL v1.0) ────────────────
-// inverse:true → indicador inverso (menor valor raw = mejor = mayor score)
-const ICTL_THR = {
-  ILON:  { verde: 3.52,   amarillo: 2.56,   inverse: false },
-  ICI:   { verde: 0.618,  amarillo: 0.54,   inverse: false },
-  ICInt: { verde: 2.379,  amarillo: 2.000,  inverse: false },
-  ICC:   { verde: 0.0323, amarillo: 0.0299, inverse: false },
-  ITL:   { verde: 0.284,  amarillo: 0.390,  inverse: true  },
+// ICTL v2.0 — Scoring continuo por percentil calibrado
+// Fuente: distribución histórica agrupada, 71 cooperativas × 100 meses (2018-01 a 2026-04)
+// Formato: [[valor_en_Pn, score_Pn], ...] ordenado por valor ascendente.
+// ITL es inverso: menor valor = mayor score; las anclas ya reflejan esa inversión.
+const ICTL_ANCHORS_C = {
+  ILON:  [[0.239,10],[0.285,25],[0.360,50],[0.458,75],[0.561,90]],
+  ICI:   [[0.035,10],[0.044,25],[0.059,50],[0.080,75],[0.105,90]],
+  ICInt: [[1.691,10],[1.862,25],[2.052,50],[2.364,75],[2.698,90]],
+  ICC:   [[0.0181,10],[0.0220,25],[0.0261,50],[0.0308,75],[0.0376,90]],
+  ITL:   [[1.574,90],[1.876,75],[2.352,50],[2.880,25],[3.433,10]],
 };
 
-// Score 0–100 con interpolación lineal entre umbrales (100 = mejor)
-function scoreIndicator(val, thr) {
+// Score continuo 0–100 por interpolación lineal entre anclas de percentil.
+// Reemplaza el esquema de tres cubos (0/50/100) de la v1.0.
+// Verde ≥75 (P75) · Amarillo 25–75 · Rojo <25 (P25)
+function scoreIndicator(val, anchors) {
   if (val == null || !isFinite(val)) return null;
-  const { verde, amarillo, inverse } = thr;
-  if (!inverse) {
-    if (val >= verde)    return 100;
-    if (val >= amarillo) return 50 + 50 * (val - amarillo) / (verde - amarillo);
-    return Math.max(0, 50 * val / amarillo);
-  } else {
-    // ITL: valor más bajo = mejor
-    if (val <= verde)    return 100;
-    if (val <= amarillo) return 100 - 50 * (val - verde) / (amarillo - verde);
-    return Math.max(0, 50 - 50 * (val - amarillo) / amarillo);
+  const n = anchors.length;
+  const asc = anchors[n-1][1] > anchors[0][1];
+  if (val <= anchors[0][0]) {
+    const [v0, s0] = anchors[0];
+    if (v0 === 0) return s0;
+    return asc
+      ? Math.max(0, s0 * val / v0)
+      : Math.min(100, s0 + (100 - s0) * (v0 - val) / v0);
   }
+  if (val >= anchors[n-1][0]) {
+    const [vN, sN] = anchors[n-1];
+    return asc
+      ? Math.min(100, sN + (100 - sN) * (val - vN) / vN)
+      : Math.max(0, sN - sN * (val - vN) / vN);
+  }
+  for (let i = 0; i < n-1; i++) {
+    const [v0, s0] = anchors[i];
+    const [v1, s1] = anchors[i+1];
+    if (val >= v0 && val < v1) return s0 + (s1 - s0) * (val - v0) / (v1 - v0);
+  }
+  return anchors[n-1][1];
 }
 
 // Cuentas de Pasivos Exigibles (incluye activos comprometidos per policy)
+// ICTL v2.0 — Pasivos exigibles ≤30 días
+// Correcciones respecto a v1.0: eliminadas 1202/130705/1601 (eran activos),
+// eliminadas 2610 (fondo SFPS) y 2702 (grupo 27). Agregadas 2101/210305/2601
+// y bandas 1-30 días de obligaciones financieras.
 const ICTL_PE_ACCTS = [
-  '1202','130705','1601',
-  '2102','2202','2304',
-  '250110','250130','250135','250145',
-  '2503','2507',
-  '2602','2603','2604','2606','2607','2610','2690',
-  '2702',
+  // Grupo 21 — Depósitos del público exigibles ≤30 días
+  '2101',    // Depósitos a la vista
+  '2102',    // Operaciones de reporto
+  '210305',  // Depósitos a plazo: tramo 1–30 días
+  // Grupo 22 — Operaciones interbancarias
+  '2201', '2202', '2203', '2204',
+  // Grupo 23 — Obligaciones inmediatas
+  '2301', '2302', '2303', '2304', '2305',
+  // Grupo 25 — Cuentas por pagar
+  '2501', '2502', '2503', '2504', '2505', '2506', '2507',
+  '250110', '250130', '250135', '250145',
+  // Sobregiros y obligaciones financieras — solo bandas 1–30 días
+  '2601',
+  '260205', '260250', '260305', '260450', '260605', '260705', '269005',
 ];
 // Cartera por vencer ≤30 días — una banda por tipo de crédito
 const ICTL_C30D_KEYS = [
@@ -1756,11 +1928,11 @@ function calcICTL(ci, mi) {
   const den_itl = (fondos ?? 0) + c30d;
   const itl_r   = (pe && den_itl)   ? pe    / den_itl       : null;
 
-  const s_ilon  = scoreIndicator(ilon_r,  ICTL_THR.ILON);
-  const s_ici   = scoreIndicator(ici_r,   ICTL_THR.ICI);
-  const s_icint = scoreIndicator(icint_r, ICTL_THR.ICInt);
-  const s_icc   = scoreIndicator(icc_r,   ICTL_THR.ICC);
-  const s_itl   = scoreIndicator(itl_r,   ICTL_THR.ITL);
+  const s_ilon  = scoreIndicator(ilon_r,  ICTL_ANCHORS_C.ILON);
+  const s_ici   = scoreIndicator(ici_r,   ICTL_ANCHORS_C.ICI);
+  const s_icint = scoreIndicator(icint_r, ICTL_ANCHORS_C.ICInt);
+  const s_icc   = scoreIndicator(icc_r,   ICTL_ANCHORS_C.ICC);
+  const s_itl   = scoreIndicator(itl_r,   ICTL_ANCHORS_C.ITL);
 
   if ([s_ilon,s_ici,s_icint,s_icc,s_itl].some(s => s === null)) return null;
 
@@ -1820,9 +1992,10 @@ function renderSGLE() {
     if (v > 40) return { level:'Alto',     color:'#c06020', action:'Revisión urgente de políticas de fondeo, cartera y vencimientos.' };
     return             { level:'Crítico',  color:'#9d3810', action:'Activar plan de contingencia. Informar al ALCO y al Consejo de Administración.' };
   }
+  // v2.0: verde ≥75 (P75) · amarillo 25–75 · rojo <25 (P25)
   function semColor(s) {
-    if (s >= 66.7) return '#2a7a4a';
-    if (s >= 33.3) return '#b8860b';
+    if (s >= 75) return '#2a7a4a';
+    if (s >= 25) return '#b8860b';
     return '#9d3810';
   }
   const lvl = ictlLevel(res.ictl);
@@ -1941,11 +2114,11 @@ function renderSGLE() {
           <th>Descripción &amp; umbral verde</th>
         </tr></thead>
         <tbody>
-          ${indRow('ILON',res.raw.ilon,res.scores.ilon, v=>v.toFixed(3), 'Activos líquidos / Pasivos exigibles. Verde &gt;3.52 · Peso 25%')}
-          ${indRow('ICI', res.raw.ici, res.scores.ici,  v=>v.toFixed(3), 'Cartera ≤30d / Pasivos exigibles. Verde &gt;0.618 · Peso 20%')}
-          ${indRow('ICInt',res.raw.icint,res.scores.icint, v=>v.toFixed(3), 'Intereses ganados / Intereses causados. Verde &gt;2.379 · Peso 20%')}
-          ${indRow('ICC',res.raw.icc,res.scores.icc, v=>(v*100).toFixed(2)+'%', 'Cartera ≤30d / Cartera bruta. Verde &gt;3.23% · Peso 10%')}
-          ${indRow('ITL',res.raw.itl,res.scores.itl, v=>v.toFixed(3), 'Pasivos exig. / (Líquidos+Cartera30d). Inverso ↓ Verde &lt;0.284 · Peso 25%')}
+          ${indRow('ILON',res.raw.ilon,res.scores.ilon, v=>v.toFixed(3), 'Activos líquidos (grupo 11) / Pasivos exigibles ≤30d. Verde P75 ≥0.458 · Peso 25%')}
+          ${indRow('ICI', res.raw.ici, res.scores.ici,  v=>v.toFixed(3), 'Cartera PV ≤30d / Pasivos exigibles ≤30d. Verde P75 ≥0.080 · Peso 20%')}
+          ${indRow('ICInt',res.raw.icint,res.scores.icint, v=>v.toFixed(3), 'Grupo 51 / Grupo 41 (intereses ganados / causados). Verde P75 ≥2.364 · Peso 20%')}
+          ${indRow('ICC',res.raw.icc,res.scores.icc, v=>(v*100).toFixed(2)+'%', 'Cartera PV ≤30d / Cartera bruta total. Verde P75 ≥3.08% · Peso 10%')}
+          ${indRow('ITL',res.raw.itl,res.scores.itl, v=>v.toFixed(3), 'Pasivos exig. / (Líquidos+Cartera30d). Inverso ↓ Verde P25 ≤1.876 · Peso 25%')}
         </tbody>
       </table>
     </div>
