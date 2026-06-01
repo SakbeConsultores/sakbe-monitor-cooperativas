@@ -2,7 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#163043">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Monitor Cooperativas">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Monitor Cooperativas S1 Ecuador — Sakbé Consultores</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -260,6 +267,115 @@ tbody tr:last-child td { border-bottom: none; }
 /* ── Chart wrap (para el ranking table) ── */
 .chart-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .chart-wrap .chart-title { font-size: 13px; font-weight: 600; color: var(--dark); margin-bottom: 12px; }
+
+/* ── Modal CAMELS ── */
+#camels-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+#camels-modal-overlay.open { display: flex; }
+#camels-modal {
+  background: var(--white);
+  border-radius: 10px;
+  padding: 24px;
+  min-width: 340px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  position: relative;
+}
+.modal-close-btn {
+  position: absolute;
+  top: 10px; right: 14px;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--slate);
+  background: none;
+  border: none;
+  line-height: 1;
+}
+.modal-close-btn:hover { color: var(--dark); }
+.modal-dim-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 12px;
+}
+.modal-dim-letter { font-size: 40px; font-weight: 800; color: var(--dark); line-height: 1; }
+.modal-dim-info { display: flex; flex-direction: column; gap: 3px; }
+.modal-dim-name { font-size: 16px; font-weight: 700; color: var(--dark); }
+.modal-dim-weight { font-size: 11px; color: var(--slate); }
+.modal-ind-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.modal-ind-table th {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--slate); padding: 4px 6px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.modal-ind-table th.r, .modal-ind-table td.r { text-align: right; }
+.modal-ind-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); }
+.modal-ind-table tr:last-child td { border-bottom: none; }
+.modal-total-box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-total-label { font-size: 12px; font-weight: 600; color: var(--slate); text-transform: uppercase; letter-spacing: 0.5px; }
+.modal-total-score { font-size: 30px; font-weight: 800; }
+.modal-note { font-size: 10px; color: var(--slate); margin-top: 10px; font-style: italic; line-height: 1.5; }
+.score-null { color: var(--border); }
+
+/* ── Tablas con scroll horizontal ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Responsive / móvil ── */
+@media (max-width: 768px) {
+  body { font-size: 13px; -webkit-text-size-adjust: 100%; }
+
+  #header { padding: 12px 14px; flex-wrap: wrap; gap: 6px; }
+  #header h1 { font-size: 15px; }
+
+  #controls { padding: 10px 14px; gap: 12px; }
+  .ctrl-group { flex: 1 1 auto; }
+  .ctrl-group select { flex: 1; min-width: 0; }
+
+  #tabs { padding: 0 8px; -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: 10px 12px; font-size: 12px; }
+
+  #content { padding: 14px 12px; }
+
+  /* gráficos a una columna */
+  .chart-row.two { grid-template-columns: 1fr; }
+
+  /* KPIs y CAMELS más compactos */
+  .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .camels-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* IFC score apilado */
+  .ifb-score-box { flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px; }
+  .ifb-score-num { font-size: 44px; }
+
+  .data-table { font-size: 12px; }
+  .data-table th, .data-table td { padding: 7px 8px; white-space: nowrap; }
+
+  #camels-modal { padding: 18px; }
+}
+
+@media (max-width: 480px) {
+  .camels-grid { grid-template-columns: repeat(2, 1fr); }
+  #header h1 { font-size: 14px; }
+  .kpi-card .kpi-value { font-size: 18px; }
+  .ifb-score-num { font-size: 38px; }
+}
 
 </style>
 </head>
@@ -978,6 +1094,7 @@ function renderActiveTab() {
     benchmarking: renderBenchmarking, sgle: renderSGLE,
   };
   fns[ACTIVE_TAB]?.();
+  wrapTables();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1011,7 +1128,7 @@ function renderAlertas() {
     const s    = dims[d];
     const sc   = s != null ? s.toFixed(2) : '—';
     const scInt = s != null ? Math.round(s) : null;
-    cardsHtml += `<div class="camels-card" style="cursor:pointer" title="${name}">
+    cardsHtml += `<div class="camels-card" onclick="showCAMELSDetail('${d}')" style="cursor:pointer" title="Ver detalle ${name}">
       <div class="c-dim">${d}</div>
       <div class="c-name">${name}</div>
       <div class="c-score ${scInt ? 'score-'+scInt : 'score-null'}">${sc}</div>
@@ -2176,12 +2293,152 @@ function renderSGLE() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MODAL CAMELS — detalle por dimensión (espejo del de bancos, datos IFC)
+// ═══════════════════════════════════════════════════════════════════════════
+function _scLabel(s){ return s===3?'Sólido':s===2?'Estable':s===1?'Frágil':'—'; }
+function _scClass(s){ return s===3?'score-3':s===2?'score-2':s===1?'score-1':'score-null'; }
+
+// Indicadores que componen cada dimensión (mismas reglas que computeIFC)
+function _dimInds(d){
+  const P = (k)=>['pat',k], I = (k)=>['ind',k];
+  const MAP = {
+    C: [
+      { label:'Solvencia (PTC/APPR)',        src:P(PAT.sol), tLow:0.09, tHigh:0.12, dir:'high', fmt:pct, w:'50%' },
+      { label:'ICN (FK/FI)',                  src:I(IND.icn), tLow:0.08, tHigh:0.10, dir:'high', fmt:pct, w:'50%' },
+    ],
+    A: [
+      { label:'Activos improd. netos/Activos',src:I(IND.actImprod),  tLow:0.08, tHigh:0.12, dir:'low',  fmt:pct, w:'33%' },
+      { label:'Morosidad total',              src:I(IND.morTotal),   tLow:0.03, tHigh:0.05, dir:'low',  fmt:pct, w:'33%' },
+      { label:'Cobertura problemática',       src:I(IND.cobProblem), tLow:1.0,  tHigh:2.0,  dir:'high', fmt:(v)=>num(v,2)+'x', w:'34%' },
+    ],
+    M: [
+      { label:'Gastos op./Margen financiero', src:I(IND.eficiencia), tLow:0.70, tHigh:0.90, dir:'low', fmt:pct, w:'50%' },
+      { label:'Gastos op./Activo prom.',      src:I(IND.efActivos),  tLow:0.035,tHigh:0.06, dir:'low', fmt:pct, w:'50%' },
+    ],
+    E: [
+      { label:'ROA',                          src:I(IND.roa), tLow:0.005, tHigh:0.015, dir:'high', fmt:pct, w:'50%' },
+      { label:'ROE',                          src:I(IND.roe), tLow:0.05,  tHigh:0.12,  dir:'high', fmt:pct, w:'50%' },
+    ],
+    S: [
+      { label:'Cartera improd. descubierta',  src:I(IND.cartImpDesc), tLow:-0.10, tHigh:0.0, dir:'low', fmt:pct, w:'100%' },
+    ],
+  };
+  return MAP[d] || [];
+}
+
+function showCAMELSDetail(dim){
+  if (!DATA) return;
+  const ci = COOP_IDX, mi = MONTH_IDX;
+  const dimNames   = { C:'Capital', A:'Activos', M:'Gestión', E:'Rentabilidad', L:'Liquidez', S:'Sensibilidad' };
+  const dimWeights = { C:'25%', A:'20%', M:'15%', E:'20%', L:'15%', S:'5%' };
+  const entName = (DATA.meta && DATA.meta.coops && DATA.meta.coops[ci]) ? DATA.meta.coops[ci] : 'Sistema';
+
+  const { dims } = computeIFC(ci, mi);
+  const score = dims[dim];
+
+  let bodyHtml = '', noteHtml = '';
+
+  if (dim === 'L') {
+    const li = DATA.ind[IND.liquidez]?.[ci]?.[mi] ?? null;
+    bodyHtml = `<table class="modal-ind-table">
+      <thead><tr><th>Indicador</th><th class="r">Valor</th><th class="r">Peso en L</th></tr></thead>
+      <tbody>
+        <tr><td>Fondos disp./Depósitos CP</td><td class="r">${li!=null?pct(li):'—'}</td><td class="r">100%</td></tr>
+      </tbody></table>`;
+    noteHtml = `<div class="modal-note">El score de Liquidez se calcula por percentil relativo al resto del sector cooperativo (≥P65 Sólido, ≥P35 Estable).</div>`;
+  } else {
+    const inds = _dimInds(dim);
+    let rows = '';
+    inds.forEach(ind => {
+      const [bucket, key] = ind.src;
+      const val = (bucket==='pat' ? DATA.pat : DATA.ind)[key]?.[ci]?.[mi] ?? null;
+      const s = score1_c(val, ind.tLow, ind.tHigh, ind.dir);
+      rows += `<tr>
+        <td>${ind.label}</td>
+        <td class="r">${val!=null ? ind.fmt(val) : '—'}</td>
+        <td class="r"><span class="${_scClass(s)}">${_scLabel(s)}</span></td>
+        <td class="r">${ind.w}</td>
+      </tr>`;
+    });
+    bodyHtml = `<table class="modal-ind-table">
+      <thead><tr><th>Indicador</th><th class="r">Valor</th><th class="r">Score</th><th class="r">Peso en ${dim}</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  }
+
+  const THRESHOLDS = {
+    C: 'Solvencia: mín. 9% / óptimo 12%. ICN: mín. 8% / óptimo 10%.',
+    A: 'Activos improd.: <8% sólido / <12% estable. Morosidad: <3% sólido / <5% estable. Cobertura: >2x sólido / >1x estable.',
+    M: 'Gastos/Margen: <70% sólido / <90% estable. Gastos/Activo: <3.5% sólido / <6% estable.',
+    E: 'ROA: >1.5% sólido / >0.5% estable. ROE: >12% sólido / >5% estable.',
+    S: 'Cartera improd. descubierta/(Patrimonio+Resultados): ≤-10% sólido / ≤0% estable.',
+  };
+  if (THRESHOLDS[dim]) noteHtml += `<div class="modal-note">${THRESHOLDS[dim]}</div>`;
+
+  document.getElementById('camels-modal-dim').textContent = dim;
+  document.getElementById('camels-modal-name').textContent = dimNames[dim];
+  document.getElementById('camels-modal-weight').textContent = `Peso en IFC: ${dimWeights[dim]} · ${entName}`;
+  document.getElementById('camels-modal-body').innerHTML = bodyHtml + noteHtml;
+
+  const scoreEl = document.getElementById('camels-modal-score');
+  scoreEl.textContent = score != null ? score.toFixed(2) : '—';
+  scoreEl.className = 'modal-total-score ' + ifcSemaClass(score);
+
+  const dimLetterEl = document.getElementById('camels-modal-dim');
+  dimLetterEl.className = 'modal-dim-letter ' + ifcSemaClass(score);
+
+  document.getElementById('camels-modal-overlay').classList.add('open');
+}
+
+function closeCAMELSModal(){
+  document.getElementById('camels-modal-overlay').classList.remove('open');
+}
+
+// Envuelve las tablas en un contenedor con scroll horizontal (móvil)
+function wrapTables(){
+  document.querySelectorAll('#content .data-table').forEach(t => {
+    const p = t.parentElement;
+    if (p && p.classList.contains('table-scroll')) return;
+    const w = document.createElement('div');
+    w.className = 'table-scroll';
+    t.replaceWith(w);
+    w.appendChild(t);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ARRANQUE
 // ═══════════════════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', init);
 </script>
-</body>
-</html>
 
+<!-- Modal CAMELS -->
+<div id="camels-modal-overlay" onclick="if(event.target===this)closeCAMELSModal()">
+  <div id="camels-modal">
+    <button class="modal-close-btn" onclick="closeCAMELSModal()">×</button>
+    <div class="modal-dim-header">
+      <div class="modal-dim-letter" id="camels-modal-dim">C</div>
+      <div class="modal-dim-info">
+        <div class="modal-dim-name" id="camels-modal-name">Capital</div>
+        <div class="modal-dim-weight" id="camels-modal-weight"></div>
+      </div>
+    </div>
+    <div id="camels-modal-body"></div>
+    <div class="modal-total-box">
+      <div class="modal-total-label">Score de la dimensión</div>
+      <div class="modal-total-score score-null" id="camels-modal-score">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Registro del service worker (PWA) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function (e) {
+      console.warn('SW no registrado:', e);
+    });
+  });
+}
+</script>
 </body>
 </html>

@@ -1,0 +1,32 @@
+{
+  "name": "Monitor Cooperativas Ecuador — Sakbé",
+  "short_name": "Monitor Coop",
+  "description": "Monitor del sector cooperativo de ahorro y crédito de Ecuador. Sakbé Consultores.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#163043",
+  "theme_color": "#163043",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
